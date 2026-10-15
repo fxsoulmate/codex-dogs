@@ -1,7 +1,7 @@
 name: dogs_generator
 description: Code generator for the dogs serialization library.
 version: 7.2.0
-repository: https://github.com/fxsoulmate/amada-dogs
+repository: https://github.com/fxsoulmate/codex-dogs
 
 environment:
   sdk: '>=3.5.0 <4.0.0'

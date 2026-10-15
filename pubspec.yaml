@@ -1,6 +1,6 @@
-name: amada_dogs
-description: Amada fork of dogs_core / dogs_generator with DogModelCodec and JsonKey map models.
-repository: https://github.com/fxsoulmate/amada-dogs
+name: codex_dogs
+description: Codex slice of dogs_core / dogs_generator with DogModelCodec and JsonKey map models.
+repository: https://github.com/fxsoulmate/codex-dogs
 publish_to: none
 
 environment:

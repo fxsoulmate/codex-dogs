@@ -1,8 +1,8 @@
 name: dogs_core
 description: universal object mapping and serialization library with a focus on dx.
 version: 10.2.0
-repository: https://github.com/fxsoulmate/amada-dogs
-issue_tracker: https://github.com/fxsoulmate/amada-dogs/issues
+repository: https://github.com/fxsoulmate/codex-dogs
+issue_tracker: https://github.com/fxsoulmate/codex-dogs/issues
 
 topics:
   - serialization
