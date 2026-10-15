@@ -79,14 +79,6 @@ class RecordingGuard extends DogModelGuard {
   }
 }
 
-late DogModelCodec readerCodec;
-int childReaderCalls = 0;
-
-Object readNumberChild(Map<String, dynamic> json) {
-  childReaderCalls++;
-  return readerCodec.fromJson<NumberValue>(json, values: {"value": (json["value"] as int) + 10});
-}
-
 Object? readSummary(Map<String, dynamic> json, Object? value) =>
     "${json.containsKey("text") ? json["text"] : "missing"}:${json["suffix"] ?? ""}";
 
@@ -506,13 +498,8 @@ void main() {
       expect(codec.engine, same(engine));
     });
 
-    test("a child reader can delegate back to the codec without recursion", () {
+    test("nested children decode through structure rules without a custom reader", () {
       final (:codec, :engine) = codecFixture();
-      registerModel(engine, numberStructure(metadata: const JsonModel(reader: readNumberChild)));
-      readerCodec = codec;
-      childReaderCalls = 0;
-      expect(codec.fromJson<NumberValue>({"value": 3}).value, 3);
-      expect(childReaderCalls, 0);
       expect(
           codec
               .fromJson<NumberEnvelope>({
@@ -520,8 +507,7 @@ void main() {
               })
               .number
               ?.value,
-          13);
-      expect(childReaderCalls, 1);
+          3);
       expect(
           codec
               .fromJson<NumberEnvelope>({"number": "bad"},
@@ -529,7 +515,6 @@ void main() {
               .number
               ?.value,
           42);
-      expect(childReaderCalls, 1);
     });
 
     test("raw output retains nested object identity rather than recursively serializing", () {

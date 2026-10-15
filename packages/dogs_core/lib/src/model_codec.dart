@@ -29,12 +29,8 @@ class JsonModel extends Structure implements SerializationHook {
   /// Returns a fresh empty list for missing or null list fields on this model.
   final bool emptyListsOnNull;
 
-  /// Optional custom factory used when this model is decoded as a child.
-  final Object Function(Map<String, dynamic>)? reader;
-
   /// Declares a serializable model with optional read and write rules.
-  const JsonModel(
-      {this.outputKeys, this.stringify = false, this.emptyListsOnNull = false, this.reader})
+  const JsonModel({this.outputKeys, this.stringify = false, this.emptyListsOnNull = false})
       : super(serializable: true);
 
   @override
@@ -215,8 +211,6 @@ class DogModelCodec {
   /// Reads JSON without mutating input or implicitly coercing scalar numbers.
   ///
   /// Explicit [values] override input annotations, including explicit nulls.
-  /// A model's custom reader is invoked only for children, avoiding recursion
-  /// when a custom factory itself delegates to this method.
   T fromJson<T>(Map<String, dynamic> json,
           {Map<String, dynamic> values = const {}, bool stringify = false}) =>
       readStructure(structure(T), json, values: values, stringify: stringify) as T;
@@ -283,11 +277,9 @@ class DogModelCodec {
     return descriptor.proxy.instantiate(fields);
   }
 
-  /// Uses an explicitly declared child factory or the generated structure.
-  dynamic readChild(DogStructure descriptor, Map<String, dynamic> json) {
-    final reader = descriptor.firstAnnotationOf<JsonModel>()?.reader;
-    return reader == null ? readStructure(descriptor, json) : reader(json);
-  }
+  /// Decodes a nested registered model with the same structure rules.
+  dynamic readChild(DogStructure descriptor, Map<String, dynamic> json) =>
+      readStructure(descriptor, json);
 
   /// Returns raw constructor fields, filtered by [JsonModel.outputKeys].
   ///
