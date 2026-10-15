@@ -1,0 +1,13 @@
+include: package:lints/recommended.yaml
+
+formatter:
+  page_width: 100
+
+linter:
+  rules:
+    - sort_pub_dependencies
+    - prefer_double_quotes
+    - avoid_void_async
+    - avoid_print
+    - prefer_final_locals
+    - public_member_api_docs
