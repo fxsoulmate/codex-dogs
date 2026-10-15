@@ -32,6 +32,23 @@ void main() {
           'lib/generated/models/dogs.g.dart');
     });
 
+    test('flattens converters into one directory with underscore path stems', () {
+      final options = BuilderOptions({
+        'output_directory': 'generated/dogs',
+        'output_flat': true,
+      });
+      final layout = DogsOutputLayout.fromOptions(options);
+      final city = AssetId('app', 'lib/city_page/city_model.dart');
+      final nested = AssetId('app', 'lib/order_page/admin/order_model.dart');
+      expect(layout.converterAsset(city).path, 'lib/generated/dogs/city_page_city_model.conv.g.dart');
+      expect(layout.converterAsset(nested).path,
+          'lib/generated/dogs/order_page_admin_order_model.conv.g.dart');
+      expect(expectedOutputs(dogsConverters(options), city), contains(layout.converterAsset(city)));
+      expect(expectedOutputs(dogsConverters(options), nested), contains(layout.converterAsset(nested)));
+      expect(expectedOutputs(dogsReactor(options), AssetId('app', r'lib/$lib$')).single.path,
+          'lib/generated/dogs/dogs.g.dart');
+    });
+
     test('keeps cached bindings and custom-link descriptors beside their source assets', () {
       final options = BuilderOptions({'output_directory': 'generated'});
       final model = AssetId('app', 'lib/models/order.dart');
@@ -60,6 +77,9 @@ void main() {
             throwsArgumentError,
             reason: '$value');
       }
+      expect(
+          () => DogsOutputLayout.fromOptions(BuilderOptions({'output_flat': true})),
+          throwsArgumentError);
     });
 
     test('detects inconsistent binding and reactor settings without changing custom links', () {
