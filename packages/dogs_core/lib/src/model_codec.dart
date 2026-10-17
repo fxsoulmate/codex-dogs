@@ -144,20 +144,20 @@ class EncodeOptions {
 /// Decode order:
 /// 1. explicit [DogModelCodec.fromJson] `values` overrides
 /// 2. [forceValue] when set (including explicit `null`)
-/// 3. resolve [name] / [aliases] / field name
+/// 3. resolve [key] / [aliases] / field name
 /// 4. [onNullValue] when the resolved value is `null` (missing or explicit null)
 /// 5. [convert] for the whole field, or [each] for list elements
 ///
 /// Encode notes:
 /// - [aliases] are decode-only and never auto-emitted
-/// - default output key is [name] ?? structure field name
+/// - default output key is [key] ?? structure field name
 /// - [encodeAlso] always dual-writes the same value under those keys
 class JsonKey<T> extends StructureMetadata with FieldSerializationHook {
   /// Alternative input names; decode-only (do not auto-encode).
   final List<String>? aliases;
 
-  /// Explicit decode / default encode key; defaults to the structure field name.
-  final String? name;
+  /// Explicit decode / default encode JSON key; defaults to the structure field name.
+  final String? key;
 
   /// Extra encode keys that always receive the same value as the primary key.
   final List<String>? encodeAlso;
@@ -180,7 +180,7 @@ class JsonKey<T> extends StructureMetadata with FieldSerializationHook {
   /// Declares field-level JSON rules for aliases, conversion, and fixed values.
   const JsonKey({
     this.aliases,
-    this.name,
+    this.key,
     this.encodeAlso,
     this.convert,
     this.each,
@@ -324,8 +324,8 @@ class DogModelCodec {
       }
       final Object? raw;
       final String key;
-      if (keyMeta?.name != null) {
-        final named = keyMeta!.name!;
+      if (keyMeta?.key != null) {
+        final named = keyMeta!.key!;
         final namedValue = json[named];
         if (namedValue != null || keyMeta.aliases == null) {
           key = named;
@@ -416,7 +416,7 @@ class DogModelCodec {
       }
 
       final keyMeta = field.firstAnnotationOf<JsonKey>();
-      final defaultKey = keyMeta?.name ?? field.name;
+      final defaultKey = keyMeta?.key ?? field.name;
       final outKey = rename[field.name] ?? defaultKey;
       final encoded = encodeValue(values[index], field, options);
 

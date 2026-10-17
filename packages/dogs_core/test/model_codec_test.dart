@@ -255,7 +255,7 @@ DogStructure<ParsedHolder> parsedStructure() => DogStructure<ParsedHolder>(
           optional: true,
           iterable: IterableKind.list,
           annotations: const [
-            JsonKey(name: "items", each: eachChild),
+            JsonKey(key: "items", each: eachChild),
           ],
         ),
       ],
@@ -601,7 +601,7 @@ void main() {
       expect(codec.engine, same(engine));
     });
 
-    test("JsonKey name overrides aliases for nested convert", () {
+    test("JsonKey key overrides aliases for nested convert", () {
       final (:codec, :engine) = codecFixture();
       registerModel(
           engine,
@@ -610,7 +610,7 @@ void main() {
             StructureConformity.basic,
             [
               DogStructureField.create<ParsedChild>("child", optional: true, annotations: const [
-                JsonKey(aliases: ["legacy_child", "child"], name: "product", convert: convertChild),
+                JsonKey(aliases: ["legacy_child", "child"], key: "product", convert: convertChild),
               ]),
               DogStructureField.create<ParsedChild>("payload", optional: true),
               DogStructureField.create<ParsedChild>(
@@ -636,7 +636,7 @@ void main() {
       expect(codec.engine, same(engine));
     });
 
-    test("JsonKey convert falls back through aliases when no name is set", () {
+    test("JsonKey convert falls back through aliases when no key is set", () {
       final (:codec, :engine) = codecFixture();
       expect(
           codec.fromJson<ParsedHolder>({
@@ -653,7 +653,7 @@ void main() {
       expect(codec.engine, same(engine));
     });
 
-    test("JsonKey each reads a custom name and keeps null lists", () {
+    test("JsonKey each reads a custom key and keeps null lists", () {
       final (:codec, :engine) = codecFixture();
       final items = List<Object?>.unmodifiable([
         Map<String, dynamic>.unmodifiable({"id": 1, "label": "a"}),

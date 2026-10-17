@@ -101,7 +101,7 @@ DogStructure<Column> columnStructure() => DogStructure<Column>(
         DogStructureField.string("name"),
         DogStructureField.double("width"),
         DogStructureField.bool("is_pinned", annotations: const [
-          JsonKey(aliases: ["isPinned", "isPin", "is_pinned", "is_pin"], name: "isPinned"),
+          JsonKey(aliases: ["isPinned", "isPin", "is_pinned", "is_pin"], key: "isPinned"),
         ]),
       ],
       const [
@@ -428,7 +428,7 @@ void main() {
       expect(json["columns"].single, {"name": "c", "isPin": true});
     });
 
-    test("Column default JsonKey.name isPinned; encodeAs can pick is_pinned / isPin / is_pin", () {
+    test("Column default JsonKey.key isPinned; encodeAs can pick is_pinned / isPin / is_pin", () {
       final (:codec, engine: _) = fixture();
       const column = Column(name: "c", width: 1, isPinned: true);
       expect(codec.toJson(column)["isPinned"], isTrue);
@@ -437,7 +437,7 @@ void main() {
       expect(codec.toJson(column, encodeAs: {"is_pinned": "is_pin"})["is_pin"], isTrue);
     });
 
-    test("JsonKey.name decode falls back to aliases when named key is absent", () {
+    test("JsonKey.key decode falls back to aliases when named key is absent", () {
       final (:codec, engine: _) = fixture();
       expect(
         codec.fromJson<Column>({"name": "n", "width": 1.0, "is_pin": true}).isPinned,
