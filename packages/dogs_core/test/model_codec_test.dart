@@ -373,7 +373,10 @@ void main() {
       expect(
           codec.toJson(
               const AliasValue(id: 4, name: null, echo: "hidden", flag: true, ignored: true),
-              options: EncodeOptions(include: ["id", "name"])),
+              options: EncodeOptions(include: [
+                const DogFieldRef<AliasValue>("id"),
+                const DogFieldRef<AliasValue>("name"),
+              ])),
           {"id": 4, "name": null});
       expect(codec.engine, same(engine));
     });

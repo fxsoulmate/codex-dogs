@@ -45,22 +45,34 @@ class JsonModel extends Structure implements SerializationHook {
       dynamic obj, Map<String, dynamic> map, DogStructure structure, DogEngine engine) {}
 }
 
-/// Compile-time field handle for [EncodeOptions] include / exclude / rename / also.
+/// Structure field handle used by [EncodeOptions].
 ///
-/// Generated as `MyModel$.fieldName` with [name] equal to the structure field
-/// name (for example `name_ku` for Dart `nameKu`).
-class DogFieldRef<T> {
+/// Prefer generated [DogFieldRef]s such as `MyModel$.fieldName`. Equality is by
+/// [name] (structure field name, for example `name_ku` for Dart `nameKu`).
+class DogField {
   /// Structure field name used by [DogModelCodec.toJson].
   final String name;
 
-  /// Creates a typed reference to a structure field on [T].
-  const DogFieldRef(this.name);
+  /// Creates a field handle from a structure field [name].
+  const DogField(this.name);
 
   @override
-  bool operator ==(Object other) => other is DogFieldRef && other.name == name;
+  bool operator ==(Object other) => other is DogField && other.name == name;
 
   @override
   int get hashCode => name.hashCode;
+
+  @override
+  String toString() => "DogField($name)";
+}
+
+/// Typed compile-time field handle for model [T].
+///
+/// Generated as `MyModel$.fieldName`. Use these in [EncodeOptions.include],
+/// [EncodeOptions.exclude], [EncodeOptions.rename], and [EncodeOptions.also].
+class DogFieldRef<T> extends DogField {
+  /// Creates a typed reference to a structure field on [T].
+  const DogFieldRef(super.name);
 
   @override
   String toString() => "DogFieldRef<$T>($name)";
@@ -68,22 +80,21 @@ class DogFieldRef<T> {
 
 /// Per-call encode rules for [DogModelCodec.toJson].
 ///
-/// [include], [exclude], [rename], and [also] keys may be structure field name
-/// [String]s or [DogFieldRef]s. [rename] / [also] apply while walking nested
-/// models; [include] / [exclude] apply only at the current level (use [forType]
-/// for nested allow/deny lists).
+/// [include], [exclude], [rename], and [also] use [DogField] / [DogFieldRef]
+/// handles. [rename] / [also] apply while walking nested models; [include] /
+/// [exclude] apply only at the current level (use [forType] for nested lists).
 class EncodeOptions {
   /// Whitelist of structure fields to emit. When set, only these fields are written.
-  final List<Object>? include;
+  final List<DogField>? include;
 
   /// Structure fields to omit after include resolution (or from all fields).
-  final List<Object>? exclude;
+  final List<DogField>? exclude;
 
-  /// Structure field name → output JSON key for this call only.
-  final Map<Object, String>? rename;
+  /// Structure field → output JSON key for this call only.
+  final Map<DogField, String>? rename;
 
-  /// Structure field name → extra output keys that always receive the same value.
-  final Map<Object, List<String>>? also;
+  /// Structure field → extra output keys that always receive the same value.
+  final Map<DogField, List<String>>? also;
 
   /// Merged into the result after fields are written (overwrites colliding keys).
   final Map<String, dynamic>? extras;
@@ -101,12 +112,8 @@ class EncodeOptions {
     this.forType,
   });
 
-  /// Resolves a [String] or [DogFieldRef] to a structure field name.
-  static String fieldName(Object key) {
-    if (key is DogFieldRef) return key.name;
-    if (key is String) return key;
-    throw ArgumentError.value(key, "key", "Expected String or DogFieldRef");
-  }
+  /// Structure field name for a [DogField] / [DogFieldRef].
+  static String fieldName(DogField key) => key.name;
 
   /// Options used when encoding a nested registered model of [type].
   EncodeOptions forChild(Type type) {
@@ -463,7 +470,8 @@ class DogModelCodec {
       exclude: options?.exclude,
       rename: {
         if (options?.rename != null) ...options!.rename!,
-        if (encodeAs != null) ...encodeAs,
+        if (encodeAs != null)
+          for (final entry in encodeAs.entries) DogField(entry.key): entry.value,
       },
       also: options?.also,
       extras: {
@@ -474,11 +482,11 @@ class DogModelCodec {
     );
   }
 
-  Set<String>? _resolveFieldSet(List<Object>? keys, Set<String> known, String label) {
+  Set<String>? _resolveFieldSet(List<DogField>? keys, Set<String> known, String label) {
     if (keys == null) return null;
     final resolved = <String>{};
     for (final key in keys) {
-      final name = EncodeOptions.fieldName(key);
+      final name = key.name;
       if (!known.contains(name)) {
         throw ArgumentError.value(key, label, "Unknown field '$name'. Known: $known");
       }
@@ -489,11 +497,11 @@ class DogModelCodec {
 
   /// Keeps only keys present on [known]. Other keys are ignored here so parent
   /// calls can pass nested-field renames that apply while walking children.
-  Map<String, String> _resolveRenameMap(Map<Object, String>? rename, Set<String> known) {
+  Map<String, String> _resolveRenameMap(Map<DogField, String>? rename, Set<String> known) {
     if (rename == null || rename.isEmpty) return const {};
     final resolved = <String, String>{};
     for (final entry in rename.entries) {
-      final name = EncodeOptions.fieldName(entry.key);
+      final name = entry.key.name;
       if (!known.contains(name)) continue;
       resolved[name] = entry.value;
     }
@@ -502,11 +510,11 @@ class DogModelCodec {
 
   /// Keeps only keys present on [known]; nested-only keys pass through [forChild].
   Map<String, List<String>> _resolveAlsoMap(
-      Map<Object, List<String>>? also, Set<String> known) {
+      Map<DogField, List<String>>? also, Set<String> known) {
     if (also == null || also.isEmpty) return const {};
     final resolved = <String, List<String>>{};
     for (final entry in also.entries) {
-      final name = EncodeOptions.fieldName(entry.key);
+      final name = entry.key.name;
       if (!known.contains(name)) continue;
       resolved[name] = List<String>.from(entry.value);
     }

@@ -196,10 +196,9 @@ void main() {
       expect({Item$.id: "item_id"}[const DogFieldRef<Item>("id")], "item_id");
     });
 
-    test("fieldName accepts String and DogFieldRef only", () {
+    test("fieldName reads DogField / DogFieldRef name", () {
       expect(EncodeOptions.fieldName(Item$.id), "id");
-      expect(EncodeOptions.fieldName("name_ku"), "name_ku");
-      expect(() => EncodeOptions.fieldName(1), throwsArgumentError);
+      expect(EncodeOptions.fieldName(const DogField("name_ku")), "name_ku");
     });
   });
 
@@ -511,7 +510,7 @@ void main() {
       final (:codec, engine: _) = fixture();
       const item = Item(id: 1, name: "n");
       expect(
-        () => codec.toJson(item, options: EncodeOptions(include: ["nope"])),
+        () => codec.toJson(item, options: EncodeOptions(include: [const DogField("nope")])),
         throwsA(isA<ArgumentError>().having((e) => e.message, "m", contains("Unknown field"))),
       );
       expect(
@@ -524,7 +523,7 @@ void main() {
           item,
           options: EncodeOptions(
             include: [Item$.id, Item$.name],
-            rename: {"x": "y"},
+            rename: {const DogField("x"): "y"},
           ),
         ),
         {"id": 1, "name": "n"},
@@ -534,7 +533,7 @@ void main() {
           item,
           options: EncodeOptions(
             include: [Item$.id, Item$.name],
-            also: {"x": ["y"]},
+            also: {const DogField("x"): ["y"]},
           ),
         ),
         {"id": 1, "name": "n"},
