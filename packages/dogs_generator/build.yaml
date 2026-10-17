@@ -20,13 +20,25 @@ builders:
   dogs_descriptors:
     import: "package:dogs_generator/integrations.dart"
     builder_factories: [ "dogsConverters" ]
-    build_extensions: { ".dart": [ ".conv.g.dart"] }
+    # Matches DogsOutputLayout.converterBuildExtensions for
+    # output_directory: generated/dogs + output_flat: true.
+    build_extensions:
+      "^lib/{{s0}}.dart": ["lib/generated/dogs/{{s0}}.conv.g.dart"]
+      "^lib/{{s0}}/{{s1}}.dart": ["lib/generated/dogs/{{s0}}_{{s1}}.conv.g.dart"]
+      "^lib/{{s0}}/{{s1}}/{{s2}}.dart": ["lib/generated/dogs/{{s0}}_{{s1}}_{{s2}}.conv.g.dart"]
+      "^lib/{{s0}}/{{s1}}/{{s2}}/{{s3}}.dart": ["lib/generated/dogs/{{s0}}_{{s1}}_{{s2}}_{{s3}}.conv.g.dart"]
+      "^lib/{{s0}}/{{s1}}/{{s2}}/{{s3}}/{{s4}}.dart": ["lib/generated/dogs/{{s0}}_{{s1}}_{{s2}}_{{s3}}_{{s4}}.conv.g.dart"]
+      "^lib/{{s0}}/{{s1}}/{{s2}}/{{s3}}/{{s4}}/{{s5}}.dart": ["lib/generated/dogs/{{s0}}_{{s1}}_{{s2}}_{{s3}}_{{s4}}_{{s5}}.conv.g.dart"]
+      "^lib/{{s0}}/{{s1}}/{{s2}}/{{s3}}/{{s4}}/{{s5}}/{{s6}}.dart": ["lib/generated/dogs/{{s0}}_{{s1}}_{{s2}}_{{s3}}_{{s4}}_{{s5}}_{{s6}}.conv.g.dart"]
+      "^lib/{{s0}}/{{s1}}/{{s2}}/{{s3}}/{{s4}}/{{s5}}/{{s6}}/{{s7}}.dart": ["lib/generated/dogs/{{s0}}_{{s1}}_{{s2}}_{{s3}}_{{s4}}_{{s5}}_{{s6}}_{{s7}}.conv.g.dart"]
     auto_apply: root_package
     build_to: source
   dogs_reactor:
     import: "package:dogs_generator/integrations.dart"
     builder_factories: [ "dogsReactor" ]
-    build_extensions: { "$lib$": [ "dogs.g.dart" ] }
+    build_extensions:
+      "$lib$":
+        - "generated/dogs/dogs.g.dart"
     required_inputs: [".dogs",".conv.g.dart"]
     auto_apply: root_package
     build_to: source
