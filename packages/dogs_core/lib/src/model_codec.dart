@@ -26,7 +26,7 @@ class JsonModel extends Structure implements SerializationHook {
   /// Declares a serializable model with optional read rules.
   ///
   /// Field selection for [DogModelCodec.toJson] is per-call via
-  /// [EncodeOptions.include] / [EncodeOptions.exclude].
+  /// [EncodeOptions.include].
   const JsonModel({this.stringify = false}) : super(serializable: true);
 
   @override
@@ -69,7 +69,7 @@ class DogField {
 /// Typed compile-time field handle for model [T].
 ///
 /// Generated as `MyModel$.fieldName`. Use these in [EncodeOptions.include],
-/// [EncodeOptions.exclude], [EncodeOptions.rename], and [EncodeOptions.also].
+/// [EncodeOptions.rename], and [EncodeOptions.also].
 class DogFieldRef<T> extends DogField {
   /// Creates a typed reference to a structure field on [T].
   const DogFieldRef(super.name);
@@ -80,15 +80,12 @@ class DogFieldRef<T> extends DogField {
 
 /// Per-call encode rules for [DogModelCodec.toJson].
 ///
-/// [include], [exclude], [rename], and [also] use [DogField] / [DogFieldRef]
-/// handles. [rename] / [also] apply while walking nested models; [include] /
-/// [exclude] apply only at the current level (use [forType] for nested lists).
+/// [include], [rename], and [also] use [DogField] / [DogFieldRef] handles.
+/// [rename] / [also] apply while walking nested models; [include] applies only
+/// at the current level (use [forType] for nested allow lists).
 class EncodeOptions {
   /// Whitelist of structure fields to emit. When set, only these fields are written.
   final List<DogField>? include;
-
-  /// Structure fields to omit after include resolution (or from all fields).
-  final List<DogField>? exclude;
 
   /// Structure field → output JSON key for this call only.
   final Map<DogField, String>? rename;
@@ -105,7 +102,6 @@ class EncodeOptions {
   /// Creates encode rules for one [DogModelCodec.toJson] call.
   const EncodeOptions({
     this.include,
-    this.exclude,
     this.rename,
     this.also,
     this.extras,
@@ -123,7 +119,6 @@ class EncodeOptions {
     }
     return EncodeOptions(
       include: specific.include,
-      exclude: specific.exclude,
       rename: {
         if (rename != null) ...rename!,
         if (specific.rename != null) ...specific.rename!,
@@ -402,14 +397,13 @@ class DogModelCodec {
     final values = descriptor.proxy.getFieldValues(model);
     final known = {for (final field in descriptor.fields) field.name};
     final include = _resolveFieldSet(options?.include, known, "include");
-    final exclude = _resolveFieldSet(options?.exclude, known, "exclude");
     final rename = _resolveRenameMap(options?.rename, known);
     final also = _resolveAlsoMap(options?.also, known);
     final result = <String, dynamic>{};
 
     for (var index = 0; index < descriptor.fields.length; index++) {
       final field = descriptor.fields[index];
-      if (!_shouldEncodeField(field.name, include: include, exclude: exclude)) {
+      if (include != null && !include.contains(field.name)) {
         continue;
       }
 
@@ -467,7 +461,6 @@ class DogModelCodec {
     if (options == null && encodeAs == null && extras == null) return null;
     return EncodeOptions(
       include: options?.include,
-      exclude: options?.exclude,
       rename: {
         if (options?.rename != null) ...options!.rename!,
         if (encodeAs != null)
@@ -521,13 +514,4 @@ class DogModelCodec {
     return resolved;
   }
 
-  bool _shouldEncodeField(
-    String fieldName, {
-    required Set<String>? include,
-    required Set<String>? exclude,
-  }) {
-    if (exclude != null && exclude.contains(fieldName)) return false;
-    if (include != null) return include.contains(fieldName);
-    return true;
-  }
 }

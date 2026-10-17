@@ -358,17 +358,6 @@ void main() {
       );
     });
 
-    test("exclude removes fields from the full model", () {
-      final (:codec, engine: _) = fixture();
-      expect(
-        codec.toJson(
-          const Item(id: 1, name: "n", secret: "s"),
-          options: EncodeOptions(exclude: [Item$.name]),
-        ),
-        {"id": 1, "secret": "s"},
-      );
-    });
-
     test("include selects fields for the call", () {
       final (:codec, engine: _) = fixture();
       expect(
@@ -377,20 +366,6 @@ void main() {
           options: EncodeOptions(include: [Item$.secret]),
         ),
         {"secret": "s"},
-      );
-    });
-
-    test("exclude wins over include", () {
-      final (:codec, engine: _) = fixture();
-      expect(
-        codec.toJson(
-          const Item(id: 1, name: "n"),
-          options: EncodeOptions(
-            include: [Item$.id, Item$.name],
-            exclude: [Item$.name],
-          ),
-        ),
-        {"id": 1},
       );
     });
 
@@ -462,7 +437,7 @@ void main() {
       expect(json["columns"].single, {"name": "c", "width": 10.0, "is_pin": false});
     });
 
-    test("forType can include/exclude nested fields only", () {
+    test("forType can include nested fields only", () {
       final (:codec, engine: _) = fixture();
       final table = Table(
         name: "t",
@@ -506,16 +481,12 @@ void main() {
   });
 
   group("validation edge cases", () {
-    test("unknown include / exclude throw; nested-only rename/also are ignored here", () {
+    test("unknown include throws; nested-only rename/also are ignored here", () {
       final (:codec, engine: _) = fixture();
       const item = Item(id: 1, name: "n");
       expect(
         () => codec.toJson(item, options: EncodeOptions(include: [const DogField("nope")])),
         throwsA(isA<ArgumentError>().having((e) => e.message, "m", contains("Unknown field"))),
-      );
-      expect(
-        () => codec.toJson(item, options: EncodeOptions(exclude: [const DogFieldRef<Item>("x")])),
-        throwsArgumentError,
       );
       // Typo rename does not throw at this level (may target nested fields).
       expect(
