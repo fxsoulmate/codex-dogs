@@ -20,6 +20,9 @@ builders:
   dogs_descriptors:
     import: "package:dogs_generator/integrations.dart"
     builder_factories: [ "dogsConverters" ]
+    # MUST match DogsOutputLayout.converterBuildExtensions for
+    # directory=generated/dogs + flat=true (the package default).
+    # If these drift, build_runner skips converters and dogs.g.dart can go empty.
     build_extensions:
       "^lib/{{s0}}.dart": ["lib/generated/dogs/{{s0}}.conv.g.dart"]
       "^lib/{{s0}}/{{s1}}.dart": ["lib/generated/dogs/{{s0}}_{{s1}}.conv.g.dart"]
@@ -38,6 +41,5 @@ builders:
       "$lib$":
         - "generated/dogs/dogs.g.dart"
     required_inputs: [".dogs", ".conv.g.dart"]
-    runs_before: []
     auto_apply: root_package
     build_to: source

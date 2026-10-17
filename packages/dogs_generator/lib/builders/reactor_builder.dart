@@ -30,6 +30,20 @@ class DogReactorBuilder extends SubjectReactorBuilder {
   FutureOr<void> buildReactor(List<SubjectDescriptor> descriptors, SubjectCodeContext code) async {
     code.additionalImports.add(AliasImport.root("package:dogs_core/dogs_core.dart"));
 
+    // Never overwrite a populated dogs.g.dart with linkAll([]) — that is the
+    // failure mode when dogs_descriptors did not run (build_extensions mismatch,
+    // stale build cache, or analyzer/experiment errors on model files).
+    if (descriptors.isEmpty && outputLayout.directory != null) {
+      throw StateError(
+        'dogs_reactor found 0 converters for output_directory='
+        '${outputLayout.directory}. Refusing to write empty GeneratedModelsPlugin.\n'
+        'Fix: run tool/regen_dogs.sh (or: dart run build_runner clean && '
+        'dart run build_runner build). Also ensure dogs_generator build.yaml '
+        'dogs_descriptors.build_extensions match DogsOutputLayout '
+        '(flat lib/generated/dogs/*.conv.g.dart).',
+      );
+    }
+
     List<String> descriptorNames = [];
     for (var descriptor in descriptors) {
       outputLayout.validateDescriptor(descriptor);

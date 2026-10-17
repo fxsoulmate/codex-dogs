@@ -12,16 +12,21 @@ class DogsOutputLayout {
 
   const DogsOutputLayout({this.directory, this.flat = false});
 
+  /// Default Amada / codex-dogs layout: flat files under `lib/generated/dogs/`.
+  ///
+  /// Keep [DogsOutputLayout.converterBuildExtensions] and
+  /// `packages/dogs_generator/build.yaml` `dogs_descriptors.build_extensions`
+  /// in sync with this default, or build_runner will skip converter codegen and
+  /// `dogs_reactor` can rewrite `dogs.g.dart` to an empty `linkAll([])`.
+  static const defaultDirectory = 'generated/dogs';
+
   factory DogsOutputLayout.fromOptions(BuilderOptions options) {
-    final value = options.config['output_directory'];
-    final flat = options.config['output_flat'] == true;
-    if (value == null) {
-      if (flat) {
-        throw ArgumentError.value(
-            flat, 'output_flat', 'Requires output_directory to be set');
-      }
-      return const DogsOutputLayout();
-    }
+    final raw = options.config['output_directory'];
+    final value = raw == null ? defaultDirectory : raw;
+    // Default flat when using the standard generated/dogs layout.
+    final flat = options.config.containsKey('output_flat')
+        ? options.config['output_flat'] == true
+        : value == defaultDirectory;
     if (value is! String ||
         value.isEmpty ||
         value.contains('\\') ||
