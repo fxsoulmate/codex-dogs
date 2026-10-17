@@ -10,7 +10,9 @@ resolution: workspace
 
 dependencies:
   build: ^4.0.0
-  analyzer: ^10.0.0
+  # Need ≥13 for Dart 3.13 primary constructors (enabled by default).
+  # Cap <14 to stay compatible with build / build_runner.
+  analyzer: '>=10.0.0 <14.0.0'
   source_gen: ^4.0.0
   crypto: ^3.0.6
   glob: ^2.1.3
