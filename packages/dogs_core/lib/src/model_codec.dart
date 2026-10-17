@@ -48,6 +48,93 @@ class JsonModel extends Structure implements SerializationHook {
   }
 }
 
+/// Compile-time field handle for [EncodeOptions] include / exclude / rename / also.
+///
+/// Generated as `MyModel$.fieldName` with [name] equal to the structure field
+/// name (for example `name_ku` for Dart `nameKu`).
+class DogFieldRef<T> {
+  /// Structure field name used by [DogModelCodec.toJson].
+  final String name;
+
+  /// Creates a typed reference to a structure field on [T].
+  const DogFieldRef(this.name);
+
+  @override
+  bool operator ==(Object other) => other is DogFieldRef && other.name == name;
+
+  @override
+  int get hashCode => name.hashCode;
+
+  @override
+  String toString() => "DogFieldRef<$T>($name)";
+}
+
+/// Per-call encode rules for [DogModelCodec.toJson].
+///
+/// [include], [exclude], [rename], and [also] keys may be structure field name
+/// [String]s or [DogFieldRef]s. [rename] / [also] apply while walking nested
+/// models; [include] / [exclude] apply only at the current level (use [forType]
+/// for nested allow/deny lists).
+class EncodeOptions {
+  /// Whitelist of structure fields to emit. When set, replaces [JsonModel.outputKeys]
+  /// for this call.
+  final List<Object>? include;
+
+  /// Structure fields to omit after include / outputKeys resolution.
+  final List<Object>? exclude;
+
+  /// Structure field name → output JSON key for this call only.
+  final Map<Object, String>? rename;
+
+  /// Structure field name → extra output keys that always receive the same value.
+  final Map<Object, List<String>>? also;
+
+  /// Merged into the result after fields are written (overwrites colliding keys).
+  final Map<String, dynamic>? extras;
+
+  /// Nested-type overrides; [rename] / [also] still inherit from the parent.
+  final Map<Type, EncodeOptions>? forType;
+
+  /// Creates encode rules for one [DogModelCodec.toJson] call.
+  const EncodeOptions({
+    this.include,
+    this.exclude,
+    this.rename,
+    this.also,
+    this.extras,
+    this.forType,
+  });
+
+  /// Resolves a [String] or [DogFieldRef] to a structure field name.
+  static String fieldName(Object key) {
+    if (key is DogFieldRef) return key.name;
+    if (key is String) return key;
+    throw ArgumentError.value(key, "key", "Expected String or DogFieldRef");
+  }
+
+  /// Options used when encoding a nested registered model of [type].
+  EncodeOptions forChild(Type type) {
+    final specific = forType?[type];
+    if (specific == null) {
+      return EncodeOptions(rename: rename, also: also, forType: forType);
+    }
+    return EncodeOptions(
+      include: specific.include,
+      exclude: specific.exclude,
+      rename: {
+        if (rename != null) ...rename!,
+        if (specific.rename != null) ...specific.rename!,
+      },
+      also: {
+        if (also != null) ...also!,
+        if (specific.also != null) ...specific.also!,
+      },
+      extras: specific.extras,
+      forType: forType,
+    );
+  }
+}
+
 /// Unified field JSON rules for [DogModelCodec].
 ///
 /// [T] is the Dart field type. Callbacks return [T?] for type-safe wiring while
@@ -60,12 +147,20 @@ class JsonModel extends Structure implements SerializationHook {
 /// 3. resolve [name] / [aliases] / field name
 /// 4. [onNullValue] when the resolved value is `null` (missing or explicit null)
 /// 5. [convert] for the whole field, or [each] for list elements
+///
+/// Encode notes:
+/// - [aliases] are decode-only and never auto-emitted
+/// - default output key is [name] ?? structure field name
+/// - [encodeAlso] always dual-writes the same value under those keys
 class JsonKey<T> extends StructureMetadata with FieldSerializationHook {
-  /// Alternative input names; the generated field name remains the output name.
+  /// Alternative input names; decode-only (do not auto-encode).
   final List<String>? aliases;
 
-  /// Explicit input key; defaults to the generated field name when omitted.
+  /// Explicit decode / default encode key; defaults to the structure field name.
   final String? name;
+
+  /// Extra encode keys that always receive the same value as the primary key.
+  final List<String>? encodeAlso;
 
   /// Converts the whole field using the parent map and raw resolved value.
   final JsonConvert<T>? convert;
@@ -86,6 +181,7 @@ class JsonKey<T> extends StructureMetadata with FieldSerializationHook {
   const JsonKey({
     this.aliases,
     this.name,
+    this.encodeAlso,
     this.convert,
     this.each,
     this.onNullValue,
@@ -229,8 +325,15 @@ class DogModelCodec {
       final Object? raw;
       final String key;
       if (keyMeta?.name != null) {
-        key = keyMeta!.name!;
-        raw = json[key];
+        final named = keyMeta!.name!;
+        final namedValue = json[named];
+        if (namedValue != null || keyMeta.aliases == null) {
+          key = named;
+          raw = namedValue;
+        } else {
+          key = keyMeta.readAliasKey(json) ?? named;
+          raw = keyMeta.readAliasValue(json);
+        }
       } else if (keyMeta?.aliases != null) {
         key = keyMeta!.readAliasKey(json) ?? field.name;
         raw = keyMeta.readAliasValue(json);
@@ -276,18 +379,159 @@ class DogModelCodec {
   dynamic readChild(DogStructure descriptor, Map<String, dynamic> json) =>
       readStructure(descriptor, json);
 
-  /// Returns raw constructor fields, filtered by [JsonModel.outputKeys].
+  /// Encodes [model] to a JSON-ready map.
   ///
-  /// Nulls and nested instances are retained; use [DogEngine.toNative] when a
-  /// recursively encoded, JSON-ready object graph is required.
-  Map<String, dynamic> toJson<T>(T model) {
-    final descriptor = structure(T);
+  /// Nested registered models and lists of registered models are encoded
+  /// recursively. [encodeAs] is a string-keyed shorthand for [EncodeOptions.rename].
+  /// [extras] merges after field writes (same as [EncodeOptions.extras]).
+  Map<String, dynamic> toJson<T>(
+    T model, {
+    EncodeOptions? options,
+    Map<String, String>? encodeAs,
+    Map<String, dynamic>? extras,
+  }) {
+    final merged = _mergeEncodeOptions(options, encodeAs, extras);
+    return writeStructure(structure(T), model, options: merged);
+  }
+
+  /// Encodes one generated structure with optional [EncodeOptions].
+  Map<String, dynamic> writeStructure(
+    DogStructure descriptor,
+    dynamic model, {
+    EncodeOptions? options,
+  }) {
     final values = descriptor.proxy.getFieldValues(model);
-    final keys = descriptor.firstAnnotationOf<JsonModel>()?.outputKeys;
-    return {
-      for (var index = 0; index < descriptor.fields.length; index++)
-        if (keys == null || keys.contains(descriptor.fields[index].name))
-          descriptor.fields[index].name: values[index],
-    };
+    final known = {for (final field in descriptor.fields) field.name};
+    final include = _resolveFieldSet(options?.include, known, "include");
+    final exclude = _resolveFieldSet(options?.exclude, known, "exclude");
+    final rename = _resolveRenameMap(options?.rename, known);
+    final also = _resolveAlsoMap(options?.also, known);
+    final outputKeys = descriptor.firstAnnotationOf<JsonModel>()?.outputKeys;
+    final result = <String, dynamic>{};
+
+    for (var index = 0; index < descriptor.fields.length; index++) {
+      final field = descriptor.fields[index];
+      if (!_shouldEncodeField(field.name, include: include, exclude: exclude, outputKeys: outputKeys)) {
+        continue;
+      }
+
+      final keyMeta = field.firstAnnotationOf<JsonKey>();
+      final defaultKey = keyMeta?.name ?? field.name;
+      final outKey = rename[field.name] ?? defaultKey;
+      final encoded = encodeValue(values[index], field, options);
+
+      result[outKey] = encoded;
+
+      final alsoKeys = <String>{
+        ...?keyMeta?.encodeAlso,
+        ...?also[field.name],
+      };
+      for (final extraKey in alsoKeys) {
+        if (extraKey == outKey) continue;
+        result[extraKey] = encoded;
+      }
+    }
+
+    final mergeExtras = options?.extras;
+    if (mergeExtras != null) result.addAll(mergeExtras);
+    return result;
+  }
+
+  /// Recursively encodes a field value for [writeStructure].
+  dynamic encodeValue(dynamic value, DogStructureField field, EncodeOptions? options) {
+    if (value == null) return null;
+
+    final serialType = field.serial.typeArgument;
+    final nested = engine.findStructureByType(serialType);
+    final isList = field.iterableKind == IterableKind.list;
+
+    if (isList) {
+      final items = value as Iterable;
+      if (nested != null) {
+        final childOptions = options?.forChild(serialType);
+        return [
+          for (final item in items) writeStructure(nested, item, options: childOptions),
+        ];
+      }
+      return [for (final item in items) item];
+    }
+
+    if (nested != null) {
+      return writeStructure(nested, value, options: options?.forChild(serialType));
+    }
+    return value;
+  }
+
+  EncodeOptions? _mergeEncodeOptions(
+    EncodeOptions? options,
+    Map<String, String>? encodeAs,
+    Map<String, dynamic>? extras,
+  ) {
+    if (options == null && encodeAs == null && extras == null) return null;
+    return EncodeOptions(
+      include: options?.include,
+      exclude: options?.exclude,
+      rename: {
+        if (options?.rename != null) ...options!.rename!,
+        if (encodeAs != null) ...encodeAs,
+      },
+      also: options?.also,
+      extras: {
+        if (options?.extras != null) ...options!.extras!,
+        if (extras != null) ...extras,
+      },
+      forType: options?.forType,
+    );
+  }
+
+  Set<String>? _resolveFieldSet(List<Object>? keys, Set<String> known, String label) {
+    if (keys == null) return null;
+    final resolved = <String>{};
+    for (final key in keys) {
+      final name = EncodeOptions.fieldName(key);
+      if (!known.contains(name)) {
+        throw ArgumentError.value(key, label, "Unknown field '$name'. Known: $known");
+      }
+      resolved.add(name);
+    }
+    return resolved;
+  }
+
+  /// Keeps only keys present on [known]. Other keys are ignored here so parent
+  /// calls can pass nested-field renames that apply while walking children.
+  Map<String, String> _resolveRenameMap(Map<Object, String>? rename, Set<String> known) {
+    if (rename == null || rename.isEmpty) return const {};
+    final resolved = <String, String>{};
+    for (final entry in rename.entries) {
+      final name = EncodeOptions.fieldName(entry.key);
+      if (!known.contains(name)) continue;
+      resolved[name] = entry.value;
+    }
+    return resolved;
+  }
+
+  /// Keeps only keys present on [known]; nested-only keys pass through [forChild].
+  Map<String, List<String>> _resolveAlsoMap(
+      Map<Object, List<String>>? also, Set<String> known) {
+    if (also == null || also.isEmpty) return const {};
+    final resolved = <String, List<String>>{};
+    for (final entry in also.entries) {
+      final name = EncodeOptions.fieldName(entry.key);
+      if (!known.contains(name)) continue;
+      resolved[name] = List<String>.from(entry.value);
+    }
+    return resolved;
+  }
+
+  bool _shouldEncodeField(
+    String fieldName, {
+    required Set<String>? include,
+    required Set<String>? exclude,
+    required List<String>? outputKeys,
+  }) {
+    if (exclude != null && exclude.contains(fieldName)) return false;
+    if (include != null) return include.contains(fieldName);
+    if (outputKeys != null) return outputKeys.contains(fieldName);
+    return true;
   }
 }

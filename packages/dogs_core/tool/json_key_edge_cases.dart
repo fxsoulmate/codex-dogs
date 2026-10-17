@@ -264,6 +264,28 @@ void main() {
   check('toJson outputKeys only', out.keys.toList().toString() == '[id, name, flag]');
   check('toJson values', out['id'] == 1 && out['name'] == 'n' && out['flag'] == 1);
 
+  final renamed = plain.toJson(
+    plain.fromJson<Sample>({'legacy_id': 1, 'legacy_name': 'n', 'flag': true}),
+    encodeAs: {'id': 'item_id'},
+  );
+  check('encodeAs renames id', renamed['item_id'] == 1 && !renamed.containsKey('id'));
+
+  final included = plain.toJson(
+    plain.fromJson<Sample>({'legacy_id': 2, 'legacy_name': 'n', 'flag': true}),
+    options: EncodeOptions(
+      include: [const DogFieldRef<Sample>('id')],
+      rename: {const DogFieldRef<Sample>('id'): 'item_id'},
+      also: {
+        const DogFieldRef<Sample>('id'): ['section_category_id'],
+      },
+    ),
+  );
+  check(
+      'EncodeOptions field refs',
+      included['item_id'] == 2 &&
+          included['section_category_id'] == 2 &&
+          !included.containsKey('name'));
+
   check('JsonKey<int> is JsonKey', const JsonKey<int>(aliases: ['a']) is JsonKey);
   check('hasFixedValue null', const JsonKey<int>(forceValue: null).hasFixedValue());
   check('hasFixedValue unset', !const JsonKey<int>().hasFixedValue());

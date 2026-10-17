@@ -150,6 +150,7 @@ class ConverterBuilder extends DogsAdapter<Serializable> {
         structurized.structure.conformity != StructureConformity.bean) {
       writeGeneratedBuilder(element, structurized, constructorName, codeContext, settings);
       writeGeneratedExtension(element, structurized, constructorName, codeContext);
+      writeGeneratedFieldRefs(element, structurized, codeContext);
     }
   }
 
@@ -393,6 +394,30 @@ return instance;""")));
     });
 
     codeContext.codeBuffer.writeln(copyClazz.accept(emitter));
+    codeContext.codeBuffer.writeln(clazz.accept(emitter));
+  }
+
+  static void writeGeneratedFieldRefs(
+      ClassElement element, StructurizeResult structurized, SubjectCodeContext codeContext) {
+    var emitter = DartEmitter();
+    var modelType = codeContext.className(element);
+    var clazz = Class((builder) {
+      builder.name = "${element.displayName}\$";
+      builder.constructors.add(Constructor((builder) => builder
+        ..name = "_"
+        ..constant = true));
+
+      for (var index = 0; index < structurized.structure.fields.length; index++) {
+        final field = structurized.structure.fields[index];
+        final accessor = structurized.fieldNames[index];
+        builder.fields.add(Field((builder) => builder
+          ..name = accessor
+          ..static = true
+          ..modifier = FieldModifier.constant
+          ..assignment = Code(
+              "$genAlias.DogFieldRef<$modelType>('${sqsLiteralEscape(field.name)}')")));
+      }
+    });
     codeContext.codeBuffer.writeln(clazz.accept(emitter));
   }
 

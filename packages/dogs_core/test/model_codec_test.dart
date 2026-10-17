@@ -505,13 +505,16 @@ void main() {
           42);
     });
 
-    test("raw output retains nested object identity rather than recursively serializing", () {
+    test("toJson recursively encodes nested models and lists of models", () {
       final (:codec, :engine) = codecFixture();
-      const child = AliasValue(id: 4);
+      const child = AliasValue(id: 4, name: "n");
       final children = <AliasValue>[child];
       final json = codec.toJson(TreeValue(child: child, children: children));
-      expect(json["child"], same(child));
-      expect(json["children"], same(children));
+      expect(json["child"], isA<Map<String, dynamic>>());
+      expect(json["child"]["id"], 4);
+      expect(json["child"]["name"], "n");
+      expect(json["children"], isA<List>());
+      expect(json["children"].single["id"], 4);
       expect(json.containsKey("nested"), isTrue);
       expect(json["nested"], isNull);
       expect(codec.engine, same(engine));
