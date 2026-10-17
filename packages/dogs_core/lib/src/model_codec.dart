@@ -69,7 +69,7 @@ class DogField {
 /// Typed compile-time field handle for model [T].
 ///
 /// Generated as `MyModel$.fieldName`. Use these in [EncodeOptions.include],
-/// [EncodeOptions.rename], and [EncodeOptions.also].
+/// [EncodeOptions.rename], [EncodeOptions.also], and [EncodeOptions.forField].
 class DogFieldRef<T> extends DogField {
   /// Creates a typed reference to a structure field on [T].
   const DogFieldRef(super.name);
@@ -80,9 +80,9 @@ class DogFieldRef<T> extends DogField {
 
 /// Per-call encode rules for [DogModelCodec.toJson].
 ///
-/// [include], [rename], and [also] use [DogField] / [DogFieldRef] handles.
-/// [rename] / [also] apply while walking nested models; [include] applies only
-/// at the current level (use [forType] for nested allow lists).
+/// [include], [rename], [also], and [forField] use [DogField] / [DogFieldRef]
+/// handles. [include] applies at the current level; [forField] supplies options
+/// for nested models on a parent field (for example `Table$.columns`).
 class EncodeOptions {
   /// Whitelist of structure fields to emit. When set, only these fields are written.
   final List<DogField>? include;
@@ -96,8 +96,8 @@ class EncodeOptions {
   /// Merged into the result after fields are written (overwrites colliding keys).
   final Map<String, dynamic>? extras;
 
-  /// Nested-type overrides; [rename] / [also] still inherit from the parent.
-  final Map<Type, EncodeOptions>? forType;
+  /// Nested encode rules keyed by the parent field that holds the nested model(s).
+  final Map<DogField, EncodeOptions>? forField;
 
   /// Creates encode rules for one [DogModelCodec.toJson] call.
   const EncodeOptions({
@@ -105,17 +105,17 @@ class EncodeOptions {
     this.rename,
     this.also,
     this.extras,
-    this.forType,
+    this.forField,
   });
 
   /// Structure field name for a [DogField] / [DogFieldRef].
   static String fieldName(DogField key) => key.name;
 
-  /// Options used when encoding a nested registered model of [type].
-  EncodeOptions forChild(Type type) {
-    final specific = forType?[type];
+  /// Options used when encoding the nested value of [field].
+  EncodeOptions optionsForField(DogStructureField field) {
+    final specific = _optionsForFieldName(field.name);
     if (specific == null) {
-      return EncodeOptions(rename: rename, also: also, forType: forType);
+      return EncodeOptions(rename: rename, also: also, forField: forField);
     }
     return EncodeOptions(
       include: specific.include,
@@ -128,8 +128,17 @@ class EncodeOptions {
         if (specific.also != null) ...specific.also!,
       },
       extras: specific.extras,
-      forType: forType,
+      forField: specific.forField,
     );
+  }
+
+  EncodeOptions? _optionsForFieldName(String fieldName) {
+    final map = forField;
+    if (map == null) return null;
+    for (final entry in map.entries) {
+      if (entry.key.name == fieldName) return entry.value;
+    }
+    return null;
   }
 }
 
@@ -399,6 +408,7 @@ class DogModelCodec {
     final include = _resolveFieldSet(options?.include, known, "include");
     final rename = _resolveRenameMap(options?.rename, known);
     final also = _resolveAlsoMap(options?.also, known);
+    _resolveForFieldKeys(options?.forField, known);
     final result = <String, dynamic>{};
 
     for (var index = 0; index < descriptor.fields.length; index++) {
@@ -439,7 +449,7 @@ class DogModelCodec {
     if (isList) {
       final items = value as Iterable;
       if (nested != null) {
-        final childOptions = options?.forChild(serialType);
+        final childOptions = options?.optionsForField(field);
         return [
           for (final item in items) writeStructure(nested, item, options: childOptions),
         ];
@@ -448,7 +458,7 @@ class DogModelCodec {
     }
 
     if (nested != null) {
-      return writeStructure(nested, value, options: options?.forChild(serialType));
+      return writeStructure(nested, value, options: options?.optionsForField(field));
     }
     return value;
   }
@@ -471,8 +481,17 @@ class DogModelCodec {
         if (options?.extras != null) ...options!.extras!,
         if (extras != null) ...extras,
       },
-      forType: options?.forType,
+      forField: options?.forField,
     );
+  }
+
+  void _resolveForFieldKeys(Map<DogField, EncodeOptions>? forField, Set<String> known) {
+    if (forField == null) return;
+    for (final key in forField.keys) {
+      if (!known.contains(key.name)) {
+        throw ArgumentError.value(key, "forField", "Unknown field '${key.name}'. Known: $known");
+      }
+    }
   }
 
   Set<String>? _resolveFieldSet(List<DogField>? keys, Set<String> known, String label) {
@@ -501,7 +520,7 @@ class DogModelCodec {
     return resolved;
   }
 
-  /// Keeps only keys present on [known]; nested-only keys pass through [forChild].
+  /// Keeps only keys present on [known]; nested-only keys pass through [optionsForField].
   Map<String, List<String>> _resolveAlsoMap(
       Map<DogField, List<String>>? also, Set<String> known) {
     if (also == null || also.isEmpty) return const {};

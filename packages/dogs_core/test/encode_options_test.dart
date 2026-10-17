@@ -60,6 +60,12 @@ class Column$ {
   static const isPinned = DogFieldRef<Column>("is_pinned");
 }
 
+class Table$ {
+  Table$._();
+  static const name = DogFieldRef<Table>("name");
+  static const columns = DogFieldRef<Table>("columns");
+}
+
 class Section$ {
   Section$._();
   static const id = DogFieldRef<Section>("id");
@@ -423,8 +429,8 @@ void main() {
     });
   });
 
-  group("nested rename / forType", () {
-    test("parent rename applies while walking nested columns", () {
+  group("nested rename / forField", () {
+    test("forField rename applies to nested columns", () {
       final (:codec, engine: _) = fixture();
       final table = Table(
         name: "t",
@@ -432,12 +438,16 @@ void main() {
       );
       final json = codec.toJson(
         table,
-        options: EncodeOptions(rename: {Column$.isPinned: "is_pin"}),
+        options: EncodeOptions(
+          forField: {
+            Table$.columns: EncodeOptions(rename: {Column$.isPinned: "is_pin"}),
+          },
+        ),
       );
       expect(json["columns"].single, {"name": "c", "width": 10.0, "is_pin": false});
     });
 
-    test("forType can include nested fields only", () {
+    test("forField can include nested fields only", () {
       final (:codec, engine: _) = fixture();
       final table = Table(
         name: "t",
@@ -446,8 +456,8 @@ void main() {
       final json = codec.toJson(
         table,
         options: EncodeOptions(
-          forType: {
-            Column: EncodeOptions(
+          forField: {
+            Table$.columns: EncodeOptions(
               include: [Column$.name, Column$.isPinned],
               rename: {Column$.isPinned: "isPin"},
             ),
