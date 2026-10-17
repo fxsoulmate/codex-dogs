@@ -57,8 +57,15 @@ class DogReactorBuilder extends SubjectReactorBuilder {
       var constructedNames = ((descriptor.meta["constructedNames"] ?? []) as List).cast<String>();
       var variableNames = ((descriptor.meta["variableNames"] ?? []) as List).cast<String>();
       for (var name in constructedNames) {
-        var type = await getDartType(step, descriptor.uri, name);
-        descriptorNames.add("${code.cachedCounter.get(type)}()");
+        try {
+          var type = await getDartType(step, descriptor.uri, name);
+          descriptorNames.add("${code.cachedCounter.get(type)}()");
+        } on ArgumentError catch (e, st) {
+          // One broken converter must not wipe dogs.g.dart — skip and warn.
+          log.warning(
+            'dogs_reactor: skip $name from ${descriptor.uri}: $e\n$st',
+          );
+        }
       }
       for (var name in variableNames) {
         var alias = code.cachedCounter.getImportAlias(descriptor.uri);
