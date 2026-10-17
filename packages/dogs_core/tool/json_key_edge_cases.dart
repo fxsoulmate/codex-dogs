@@ -92,7 +92,7 @@ void registerModel<T>(DogEngine engine, DogStructure<T> structure) {
       emitChangeToStream: false);
 }
 
-DogStructure<Sample> sampleStructure({bool emptyListsOnNull = false}) => DogStructure<Sample>(
+DogStructure<Sample> sampleStructure() => DogStructure<Sample>(
       'Sample',
       StructureConformity.basic,
       [
@@ -134,7 +134,7 @@ DogStructure<Sample> sampleStructure({bool emptyListsOnNull = false}) => DogStru
           JsonKey<String>(convert: readSummary),
         ]),
       ],
-      [JsonModel(emptyListsOnNull: emptyListsOnNull, outputKeys: const ['id', 'name', 'flag'])],
+      const [JsonModel(outputKeys: ['id', 'name', 'flag'])],
       ObjectFactoryStructureProxy<Sample>(
         (values) => Sample(
           id: values[0],
@@ -178,15 +178,14 @@ DogStructure<Sample> sampleStructure({bool emptyListsOnNull = false}) => DogStru
       ),
     );
 
-DogModelCodec codec({bool emptyListsOnNull = false}) {
+DogModelCodec codec() {
   final engine = DogEngine();
-  registerModel(engine, sampleStructure(emptyListsOnNull: emptyListsOnNull));
+  registerModel(engine, sampleStructure());
   return DogModelCodec(engine: engine);
 }
 
 void main() {
   final plain = codec();
-  final emptyLists = codec(emptyListsOnNull: true);
 
   check('alias preferred key', plain.fromJson<Sample>({'legacy_id': 1, 'id': 2}).id == 1);
   check('alias fallback key', plain.fromJson<Sample>({'id': 2}).id == 2);
@@ -218,10 +217,8 @@ void main() {
           }).numbers!.toString() ==
           '[1, 2]');
   check('each empty list', plain.fromJson<Sample>({'numbers': []}).numbers!.isEmpty);
-  check('list null without emptyListsOnNull', plain.fromJson<Sample>({}).numbers == null);
-  check('list null with emptyListsOnNull', emptyLists.fromJson<Sample>({}).numbers!.isEmpty);
-  check('list explicit null with emptyListsOnNull',
-      emptyLists.fromJson<Sample>({'numbers': null}).numbers!.isEmpty);
+  check('list missing stays null', plain.fromJson<Sample>({}).numbers == null);
+  check('list explicit null stays null', plain.fromJson<Sample>({'numbers': null}).numbers == null);
 
   final withItems = plain.fromJson<Sample>({
     'items': [

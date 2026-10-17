@@ -26,12 +26,8 @@ class JsonModel extends Structure implements SerializationHook {
   /// Converts non-null input values to strings before construction.
   final bool stringify;
 
-  /// Returns a fresh empty list for missing or null list fields on this model.
-  final bool emptyListsOnNull;
-
   /// Declares a serializable model with optional read and write rules.
-  const JsonModel({this.outputKeys, this.stringify = false, this.emptyListsOnNull = false})
-      : super(serializable: true);
+  const JsonModel({this.outputKeys, this.stringify = false}) : super(serializable: true);
 
   @override
   void beforeDeserialization(Map<String, dynamic> map, DogStructure structure, DogEngine engine) {
@@ -219,7 +215,6 @@ class DogModelCodec {
   dynamic readStructure(DogStructure descriptor, Map<String, dynamic> json,
       {Map<String, dynamic> values = const {}, bool stringify = false}) {
     final strings = stringify || (descriptor.firstAnnotationOf<JsonModel>()?.stringify ?? false);
-    final emptyListsOnNull = descriptor.firstAnnotationOf<JsonModel>()?.emptyListsOnNull ?? false;
     final fields = <dynamic>[];
     for (final field in descriptor.fields) {
       if (values.containsKey(field.name)) {
@@ -252,7 +247,7 @@ class DogModelCodec {
       }
       final isList = field.iterableKind == IterableKind.list;
       final nested = engine.findStructureByType(field.serial.typeArgument);
-      if (isList && (nested != null || keyMeta?.each != null || emptyListsOnNull || value is List)) {
+      if (isList && (nested != null || keyMeta?.each != null || value is List)) {
         fields.add(field.serial.consumeType(<T>() {
           final result = guard.list<T>(input, key, (item) {
             if (keyMeta?.each != null) return keyMeta!.each!(json, item) as T;
@@ -263,7 +258,7 @@ class DogModelCodec {
           });
           if (result != null) return result;
           if (value is Iterable) return List<T>.from(value);
-          return emptyListsOnNull ? <T>[] : null;
+          return null;
         }));
         continue;
       }

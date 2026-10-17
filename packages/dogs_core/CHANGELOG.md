@@ -3,8 +3,8 @@
 - Add an opt-in `DogModelCodec` for strict JSON model reads, typed nested models, input aliases, explicit conversions, and filtered raw maps.
 - Add unified `JsonKey<T>` field metadata (`aliases`, `name`, `convert`, `each`, `onNullValue`, `forceValue`); callbacks return `T?` and receive the parent JSON map.
 - Add `JsonModel` class metadata and `JsonConversions` static converter tear-offs (`stringify`, `flagInt`, `integer`) for use with `JsonKey`.
-- Allow `JsonModel(emptyListsOnNull: true)` to default all list fields on an opted-in model without per-field annotations.
 - Prefer `JsonKey.onNullValue` for DogModelCodec defaults; native `DefaultValue` remains for `DogEngine` serialization hooks.
+- Remove `JsonModel.emptyListsOnNull`; missing or null list fields stay null (use `JsonKey.onNullValue` for per-field defaults).
 
 ## 10.2.0
 

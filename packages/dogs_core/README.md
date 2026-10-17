@@ -129,9 +129,9 @@ final request = models.toJson(city); // {'id': 1, 'name': 'Erbil'}
 ```
 
 `@JsonModel` also marks the class for DOGs generation. The codec reads
-registered nested models and lists recursively.
-`@JsonModel(emptyListsOnNull: true)` supplies fresh typed empty lists for
-missing or null list fields on that model. Use one `@JsonKey(...)` per field:
+registered nested models and lists recursively. Missing or null list fields
+stay null; use `JsonKey.onNullValue` when a field needs an empty-list default.
+Use one `@JsonKey(...)` per field:
 `aliases` for alternate input names, `name` for an explicit input key,
 `JsonKey<T>` callbacks return `T?` for type safety while raw JSON input stays
 `Object?`. Use `convert` / `each` as `(Map json, Object? value)`, `onNullValue`

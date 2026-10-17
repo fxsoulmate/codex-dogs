@@ -148,7 +148,7 @@ DogStructure<AliasValue> aliasStructure() => DogStructure<AliasValue>(
       ),
     );
 
-DogStructure<TreeValue> treeStructure({bool emptyListsOnNull = true}) => DogStructure<TreeValue>(
+DogStructure<TreeValue> treeStructure() => DogStructure<TreeValue>(
       "TreeValue",
       StructureConformity.basic,
       [
@@ -165,7 +165,7 @@ DogStructure<TreeValue> treeStructure({bool emptyListsOnNull = true}) => DogStru
         ),
         DogStructureField.create<TreeValue>("nested", optional: true),
       ],
-      [JsonModel(emptyListsOnNull: emptyListsOnNull)],
+      const [JsonModel()],
       ObjectFactoryStructureProxy<TreeValue>(
         (values) => TreeValue(child: values[0], children: values[1], nested: values[2]),
         [(value) => value.child, (value) => value.children, (value) => value.nested],
@@ -191,7 +191,7 @@ DogStructure<ConvertedValue> convertedStructure() => DogStructure<ConvertedValue
         DogStructureField.string("summary",
             optional: true, annotations: const [JsonKey(convert: readSummary)]),
       ],
-      const [JsonModel(emptyListsOnNull: true)],
+      const [JsonModel()],
       ObjectFactoryStructureProxy<ConvertedValue>(
         (values) => ConvertedValue(
             text: values[0],
@@ -259,7 +259,7 @@ DogStructure<ParsedHolder> parsedStructure() => DogStructure<ParsedHolder>(
           ],
         ),
       ],
-      const [JsonModel(emptyListsOnNull: true)],
+      const [JsonModel()],
       ObjectFactoryStructureProxy<ParsedHolder>(
         (values) => ParsedHolder(child: values[0], payload: values[1], children: values[2]),
         [(value) => value.child, (value) => value.payload, (value) => value.children],
@@ -406,24 +406,12 @@ void main() {
       expect(codec.engine, same(engine));
     });
 
-    test("missing and null model lists receive independent mutable typed defaults", () {
+    test("missing and null model lists stay null", () {
       final (:codec, :engine) = codecFixture();
-      final missing = codec.fromJson<TreeValue>({});
-      final nullable = codec.fromJson<TreeValue>({"children": null});
-      expect(missing.children, isA<List<AliasValue>>());
-      expect(nullable.children, isA<List<AliasValue>>());
-      expect(missing.children, isNot(same(nullable.children)));
-      missing.children!.add(const AliasValue(id: 1));
-      expect(nullable.children, isEmpty);
-      expect(const TreeValue().children, isNull);
-      expect(codec.engine, same(engine));
-    });
-
-    test("list fields retain null when class-level empty lists are disabled", () {
-      final (:codec, :engine) = codecFixture();
-      registerModel(engine, treeStructure(emptyListsOnNull: false));
       expect(codec.fromJson<TreeValue>({}).children, isNull);
       expect(codec.fromJson<TreeValue>({"children": null}).children, isNull);
+      expect(const TreeValue().children, isNull);
+      expect(codec.engine, same(engine));
     });
 
     test("list aliases choose an empty first list before a populated fallback", () {
@@ -544,18 +532,16 @@ void main() {
       expect(codec.engine, same(engine));
     });
 
-    test("list conversions create typed results and fresh defaults", () {
+    test("list conversions create typed results and keep null when missing", () {
       final (:codec, :engine) = codecFixture();
       expect(
           codec.fromJson<ConvertedValue>({
             "numbers": <dynamic>[2.9, -3.8, 4]
           }).numbers,
           <int>[2, -3, 4]);
-      final first = codec.fromJson<ConvertedValue>({});
-      final second = codec.fromJson<ConvertedValue>({"numbers": null});
-      expect(first.numbers, isA<List<int>>());
-      first.numbers!.add(7);
-      expect(second.numbers, isEmpty);
+      expect(codec.fromJson<ConvertedValue>({}).numbers, isNull);
+      expect(codec.fromJson<ConvertedValue>({"numbers": null}).numbers, isNull);
+      expect(codec.fromJson<ConvertedValue>({"numbers": <dynamic>[]}).numbers, isEmpty);
       expect(codec.engine, same(engine));
     });
 
@@ -664,7 +650,7 @@ void main() {
       expect(codec.engine, same(engine));
     });
 
-    test("JsonKey each reads a custom name and defaults empty lists", () {
+    test("JsonKey each reads a custom name and keeps null lists", () {
       final (:codec, :engine) = codecFixture();
       final items = List<Object?>.unmodifiable([
         Map<String, dynamic>.unmodifiable({"id": 1, "label": "a"}),
@@ -674,8 +660,9 @@ void main() {
       final value = codec.fromJson<ParsedHolder>(input);
       expect(value.children?.map((child) => child.id).toList(), <int>[1, 2]);
       expect(value.children?.map((child) => child.label).toList(), <String>["a", "4"]);
-      expect(codec.fromJson<ParsedHolder>({}).children, isEmpty);
-      expect(codec.fromJson<ParsedHolder>({"items": null}).children, isEmpty);
+      expect(codec.fromJson<ParsedHolder>({}).children, isNull);
+      expect(codec.fromJson<ParsedHolder>({"items": null}).children, isNull);
+      expect(codec.fromJson<ParsedHolder>({"items": <dynamic>[]}).children, isEmpty);
       expect(input["items"], same(items));
       expect(
           () => codec.fromJson<ParsedHolder>({
