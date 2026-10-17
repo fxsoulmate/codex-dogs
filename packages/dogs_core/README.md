@@ -111,7 +111,7 @@ its annotations:
 import 'package:dogs_core/dogs_models.dart';
 import 'dogs.g.dart';
 
-@JsonModel(outputKeys: ['id', 'name'])
+@JsonModel()
 class City {
   @JsonKey(aliases: ['legacy_id', 'id'])
   final int? id;
@@ -125,7 +125,10 @@ final models = DogModelCodec(
   engine: configureDogs(plugins: [GeneratedModelsPlugin()]),
 );
 final city = models.fromJson<City>({'legacy_id': 1, 'name': 'Erbil'});
-final request = models.toJson(city); // {'id': 1, 'name': 'Erbil'}
+final request = models.toJson(
+  city,
+  options: EncodeOptions(include: [City$.id, City$.name]),
+); // {'id': 1, 'name': 'Erbil'}
 ```
 
 `@JsonModel` also marks the class for DOGs generation. The codec reads

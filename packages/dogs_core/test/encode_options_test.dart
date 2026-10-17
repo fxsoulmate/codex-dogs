@@ -104,9 +104,7 @@ DogStructure<Column> columnStructure() => DogStructure<Column>(
           JsonKey(aliases: ["isPinned", "isPin", "is_pinned", "is_pin"], key: "isPinned"),
         ]),
       ],
-      const [
-        JsonModel(outputKeys: ["name", "width", "is_pinned"])
-      ],
+      const [JsonModel()],
       ObjectFactoryStructureProxy<Column>(
         (values) => Column(name: values[0], width: values[1], isPinned: values[2]),
         [(v) => v.name, (v) => v.width, (v) => v.isPinned],
@@ -121,9 +119,7 @@ DogStructure<Table> tableStructure() => DogStructure<Table>(
         DogStructureField.string("name"),
         DogStructureField.create<Column>("columns", iterable: IterableKind.list),
       ],
-      const [
-        JsonModel(outputKeys: ["name", "columns"])
-      ],
+      const [JsonModel()],
       ObjectFactoryStructureProxy<Table>(
         (values) => Table(name: values[0], columns: values[1]),
         [(v) => v.name, (v) => v.columns],
@@ -141,9 +137,7 @@ DogStructure<Section> sectionStructure() => DogStructure<Section>(
         DogStructureField.create<num>("fee_rate", optional: true),
         DogStructureField.string("name_ku", optional: true),
       ],
-      const [
-        JsonModel(outputKeys: ["id", "fee_rate"])
-      ],
+      const [JsonModel()],
       ObjectFactoryStructureProxy<Section>(
         (values) => Section(id: values[0], feeRate: values[1], nameKu: values[2]),
         [(v) => v.id, (v) => v.feeRate, (v) => v.nameKu],
@@ -184,7 +178,7 @@ DogStructure<Dual> dualStructure() => DogStructure<Dual>(
 
 ({DogEngine engine, DogModelCodec codec}) fixture() {
   final engine = DogEngine();
-  registerModel(engine, itemStructure(meta: const JsonModel(outputKeys: ["id", "name"])));
+  registerModel(engine, itemStructure());
   registerModel(engine, columnStructure());
   registerModel(engine, tableStructure());
   registerModel(engine, sectionStructure());
@@ -210,9 +204,19 @@ void main() {
   });
 
   group("default recursive encode", () {
-    test("ItemModel default id and nested TableModel columns become maps", () {
+    test("ItemModel default encodes all fields; include selects keys", () {
       final (:codec, engine: _) = fixture();
-      expect(codec.toJson(const Item(id: 7, name: "x", secret: "no")), {"id": 7, "name": "x"});
+      expect(
+        codec.toJson(const Item(id: 7, name: "x", secret: "no")),
+        {"id": 7, "name": "x", "secret": "no"},
+      );
+      expect(
+        codec.toJson(
+          const Item(id: 7, name: "x", secret: "no"),
+          options: EncodeOptions(include: [Item$.id, Item$.name]),
+        ),
+        {"id": 7, "name": "x"},
+      );
 
       final table = Table(
         name: "city",
@@ -260,7 +264,10 @@ void main() {
     test("SectionCategoryModel writes id and section_category_id", () {
       final (:codec, engine: _) = fixture();
       expect(
-        codec.toJson(const Section(id: 3, feeRate: 1.5)),
+        codec.toJson(
+          const Section(id: 3, feeRate: 1.5),
+          options: EncodeOptions(include: [Section$.id, Section$.feeRate]),
+        ),
         {"id": 3, "section_category_id": 3, "fee_rate": 1.5},
       );
     });
@@ -280,7 +287,11 @@ void main() {
     test("rename primary keeps encodeAlso extras", () {
       final (:codec, engine: _) = fixture();
       expect(
-        codec.toJson(const Section(id: 3, feeRate: 2), encodeAs: {"id": "category_id"}),
+        codec.toJson(
+          const Section(id: 3, feeRate: 2),
+          options: EncodeOptions(include: [Section$.id, Section$.feeRate]),
+          encodeAs: {"id": "category_id"},
+        ),
         {"category_id": 3, "section_category_id": 3, "fee_rate": 2},
       );
     });
@@ -303,32 +314,38 @@ void main() {
     test("string keys work the same as DogFieldRef", () {
       final (:codec, engine: _) = fixture();
       expect(
-        codec.toJson(const Item(id: 7, name: "n"), encodeAs: {"id": "item_id"}),
+        codec.toJson(
+          const Item(id: 7, name: "n"),
+          options: EncodeOptions(include: [Item$.id, Item$.name]),
+          encodeAs: {"id": "item_id"},
+        ),
         {"item_id": 7, "name": "n"},
       );
       expect(
         codec.toJson(
           const Item(id: 7, name: "n"),
-          options: EncodeOptions(rename: {Item$.id: "item_id"}),
+          options: EncodeOptions(
+            include: [Item$.id, Item$.name],
+            rename: {Item$.id: "item_id"},
+          ),
         ),
         {"item_id": 7, "name": "n"},
       );
     });
 
-    test("exclude removes fields after outputKeys", () {
+    test("exclude removes fields from the full model", () {
       final (:codec, engine: _) = fixture();
       expect(
         codec.toJson(
           const Item(id: 1, name: "n", secret: "s"),
           options: EncodeOptions(exclude: [Item$.name]),
         ),
-        {"id": 1},
+        {"id": 1, "secret": "s"},
       );
     });
 
-    test("include replaces outputKeys whitelist for the call", () {
+    test("include selects fields for the call", () {
       final (:codec, engine: _) = fixture();
-      // secret is outside JsonModel.outputKeys but include can select it.
       expect(
         codec.toJson(
           const Item(id: 1, name: "n", secret: "s"),
@@ -357,9 +374,12 @@ void main() {
       expect(
         codec.toJson(
           const Item(id: 5, name: "n"),
-          options: EncodeOptions(also: {
-            Item$.id: ["item_id", "product_id"],
-          }),
+          options: EncodeOptions(
+            include: [Item$.id, Item$.name],
+            also: {
+              Item$.id: ["item_id", "product_id"],
+            },
+          ),
         ),
         {"id": 5, "item_id": 5, "product_id": 5, "name": "n"},
       );
@@ -370,12 +390,19 @@ void main() {
       expect(
         codec.toJson(
           const Item(id: 1, name: "n"),
-          options: EncodeOptions(extras: {"name": "over", "extra": true}),
+          options: EncodeOptions(
+            include: [Item$.id, Item$.name],
+            extras: {"name": "over", "extra": true},
+          ),
         ),
         {"id": 1, "name": "over", "extra": true},
       );
       expect(
-        codec.toJson(const Item(id: 1, name: "n"), extras: {"x": 1}),
+        codec.toJson(
+          const Item(id: 1, name: "n"),
+          options: EncodeOptions(include: [Item$.id, Item$.name]),
+          extras: {"x": 1},
+        ),
         {"id": 1, "name": "n", "x": 1},
       );
     });
@@ -385,7 +412,10 @@ void main() {
       expect(
         codec.toJson(
           const Item(id: 1, name: "n"),
-          options: EncodeOptions(rename: {Item$.id: "a"}),
+          options: EncodeOptions(
+            include: [Item$.id, Item$.name],
+            rename: {Item$.id: "a"},
+          ),
           encodeAs: {"id": "b"},
         ),
         {"b": 1, "name": "n"},
@@ -464,18 +494,36 @@ void main() {
       );
       // Typo rename does not throw at this level (may target nested fields).
       expect(
-        codec.toJson(item, options: EncodeOptions(rename: {"x": "y"})),
+        codec.toJson(
+          item,
+          options: EncodeOptions(
+            include: [Item$.id, Item$.name],
+            rename: {"x": "y"},
+          ),
+        ),
         {"id": 1, "name": "n"},
       );
       expect(
-        codec.toJson(item, options: EncodeOptions(also: {"x": ["y"]})),
+        codec.toJson(
+          item,
+          options: EncodeOptions(
+            include: [Item$.id, Item$.name],
+            also: {"x": ["y"]},
+          ),
+        ),
         {"id": 1, "name": "n"},
       );
     });
 
     test("null scalars remain null keys when included", () {
       final (:codec, engine: _) = fixture();
-      expect(codec.toJson(const Item()), {"id": null, "name": null});
+      expect(
+        codec.toJson(
+          const Item(),
+          options: EncodeOptions(include: [Item$.id, Item$.name]),
+        ),
+        {"id": null, "name": null},
+      );
     });
 
     test("round-trip fromJson aliases then toJson with encodeAs", () {
@@ -486,7 +534,13 @@ void main() {
       });
       expect(section.id, 11);
       expect(
-        codec.toJson(section, options: EncodeOptions(rename: {Section$.id: "item_id"})),
+        codec.toJson(
+          section,
+          options: EncodeOptions(
+            include: [Section$.id, Section$.feeRate],
+            rename: {Section$.id: "item_id"},
+          ),
+        ),
         {"item_id": 11, "section_category_id": 11, "fee_rate": 0.2},
       );
     });

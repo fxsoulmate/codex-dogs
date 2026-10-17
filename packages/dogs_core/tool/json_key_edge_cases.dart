@@ -113,13 +113,13 @@ DogStructure<Sample> sampleStructure() => DogStructure<Sample>(
             iterable: IterableKind.list,
             annotations: const [JsonKey<int>(each: JsonConversions.integer)]),
         DogStructureField.create<Child>('child', optional: true, annotations: const [
-          JsonKey<Child>(name: 'product', convert: convertChild),
+          JsonKey<Child>(key: 'product', convert: convertChild),
         ]),
         DogStructureField.create<Child>(
           'children',
           optional: true,
           iterable: IterableKind.list,
-          annotations: const [JsonKey<Child>(name: 'items', each: eachChild)],
+          annotations: const [JsonKey<Child>(key: 'items', each: eachChild)],
         ),
         DogStructureField.int('forced', optional: true, annotations: const [
           JsonKey<int>(forceValue: null, onNullValue: onNullSeven),
@@ -134,7 +134,7 @@ DogStructure<Sample> sampleStructure() => DogStructure<Sample>(
           JsonKey<String>(convert: readSummary),
         ]),
       ],
-      const [JsonModel(outputKeys: ['id', 'name', 'flag'])],
+      const [JsonModel()],
       ObjectFactoryStructureProxy<Sample>(
         (values) => Sample(
           id: values[0],
@@ -260,12 +260,28 @@ void main() {
       plain.fromJson<Sample>({'text': 'hi', 'suffix': 'x'}).summary == 'hi:x');
   check('map-aware convert missing text', plain.fromJson<Sample>({'suffix': 'x'}).summary == 'missing:x');
 
-  final out = plain.toJson(plain.fromJson<Sample>({'legacy_id': 1, 'legacy_name': 'n', 'flag': true}));
-  check('toJson outputKeys only', out.keys.toList().toString() == '[id, name, flag]');
+  final out = plain.toJson(
+    plain.fromJson<Sample>({'legacy_id': 1, 'legacy_name': 'n', 'flag': true}),
+    options: EncodeOptions(
+      include: [
+        const DogFieldRef<Sample>('id'),
+        const DogFieldRef<Sample>('name'),
+        const DogFieldRef<Sample>('flag'),
+      ],
+    ),
+  );
+  check('toJson include only', out.keys.toList().toString() == '[id, name, flag]');
   check('toJson values', out['id'] == 1 && out['name'] == 'n' && out['flag'] == 1);
 
   final renamed = plain.toJson(
     plain.fromJson<Sample>({'legacy_id': 1, 'legacy_name': 'n', 'flag': true}),
+    options: EncodeOptions(
+      include: [
+        const DogFieldRef<Sample>('id'),
+        const DogFieldRef<Sample>('name'),
+        const DogFieldRef<Sample>('flag'),
+      ],
+    ),
     encodeAs: {'id': 'item_id'},
   );
   check('encodeAs renames id', renamed['item_id'] == 1 && !renamed.containsKey('id'));

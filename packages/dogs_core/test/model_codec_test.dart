@@ -131,9 +131,7 @@ DogStructure<AliasValue> aliasStructure() => DogStructure<AliasValue>(
         ]),
         DogStructureField.bool("ignored", annotations: const [JsonKey(forceValue: false)]),
       ],
-      const [
-        JsonModel(outputKeys: ["id", "name"])
-      ],
+      const [JsonModel()],
       ObjectFactoryStructureProxy<AliasValue>(
         (values) => AliasValue(
             id: values[0], name: values[1], echo: values[2], flag: values[3], ignored: values[4]),
@@ -370,11 +368,12 @@ void main() {
       expect(input["value"], isFalse);
     });
 
-    test("output filters preserve canonical names and explicit null fields", () {
+    test("include filters preserve canonical names and explicit null fields", () {
       final (:codec, :engine) = codecFixture();
       expect(
           codec.toJson(
-              const AliasValue(id: 4, name: null, echo: "hidden", flag: true, ignored: true)),
+              const AliasValue(id: 4, name: null, echo: "hidden", flag: true, ignored: true),
+              options: EncodeOptions(include: ["id", "name"])),
           {"id": 4, "name": null});
       expect(codec.engine, same(engine));
     });

@@ -20,14 +20,14 @@ typedef JsonOnNull<T> = T? Function(JsonMap json);
 
 /// Declares JSON model rules without changing native DOGs coercion defaults.
 class JsonModel extends Structure implements SerializationHook {
-  /// Fields allowed in [DogModelCodec.toJson], or all fields when null.
-  final List<String>? outputKeys;
-
   /// Converts non-null input values to strings before construction.
   final bool stringify;
 
-  /// Declares a serializable model with optional read and write rules.
-  const JsonModel({this.outputKeys, this.stringify = false}) : super(serializable: true);
+  /// Declares a serializable model with optional read rules.
+  ///
+  /// Field selection for [DogModelCodec.toJson] is per-call via
+  /// [EncodeOptions.include] / [EncodeOptions.exclude].
+  const JsonModel({this.stringify = false}) : super(serializable: true);
 
   @override
   void beforeDeserialization(Map<String, dynamic> map, DogStructure structure, DogEngine engine) {
@@ -42,10 +42,7 @@ class JsonModel extends Structure implements SerializationHook {
 
   @override
   void postSerialization(
-      dynamic obj, Map<String, dynamic> map, DogStructure structure, DogEngine engine) {
-    final keys = outputKeys;
-    if (keys != null) map.removeWhere((key, value) => !keys.contains(key));
-  }
+      dynamic obj, Map<String, dynamic> map, DogStructure structure, DogEngine engine) {}
 }
 
 /// Compile-time field handle for [EncodeOptions] include / exclude / rename / also.
@@ -76,11 +73,10 @@ class DogFieldRef<T> {
 /// models; [include] / [exclude] apply only at the current level (use [forType]
 /// for nested allow/deny lists).
 class EncodeOptions {
-  /// Whitelist of structure fields to emit. When set, replaces [JsonModel.outputKeys]
-  /// for this call.
+  /// Whitelist of structure fields to emit. When set, only these fields are written.
   final List<Object>? include;
 
-  /// Structure fields to omit after include / outputKeys resolution.
+  /// Structure fields to omit after include resolution (or from all fields).
   final List<Object>? exclude;
 
   /// Structure field name → output JSON key for this call only.
@@ -406,12 +402,11 @@ class DogModelCodec {
     final exclude = _resolveFieldSet(options?.exclude, known, "exclude");
     final rename = _resolveRenameMap(options?.rename, known);
     final also = _resolveAlsoMap(options?.also, known);
-    final outputKeys = descriptor.firstAnnotationOf<JsonModel>()?.outputKeys;
     final result = <String, dynamic>{};
 
     for (var index = 0; index < descriptor.fields.length; index++) {
       final field = descriptor.fields[index];
-      if (!_shouldEncodeField(field.name, include: include, exclude: exclude, outputKeys: outputKeys)) {
+      if (!_shouldEncodeField(field.name, include: include, exclude: exclude)) {
         continue;
       }
 
@@ -527,11 +522,9 @@ class DogModelCodec {
     String fieldName, {
     required Set<String>? include,
     required Set<String>? exclude,
-    required List<String>? outputKeys,
   }) {
     if (exclude != null && exclude.contains(fieldName)) return false;
     if (include != null) return include.contains(fieldName);
-    if (outputKeys != null) return outputKeys.contains(fieldName);
     return true;
   }
 }
