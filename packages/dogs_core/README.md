@@ -113,7 +113,7 @@ import 'dogs.g.dart';
 
 @JsonModel()
 class City {
-  @JsonKey(aliases: ['legacy_id', 'id'])
+  @JsonKey(fromJsonKeys: ['legacy_id', 'id'])
   final int? id;
 
   final String? name;
@@ -135,7 +135,9 @@ final request = models.toJson(
 registered nested models and lists recursively. Missing or null list fields
 stay null; use `JsonKey.onNullValue` when a field needs an empty-list default.
 Use one `@JsonKey(...)` per field:
-`aliases` for alternate input names, `name` for an explicit input key,
+`fromJsonKeys` for alternate input names, `fromJsonKey` for a preferred input key
+(also the default encode key when set). Dual-write extra encode keys with
+`EncodeOptions.also` on `toJson`, not on `@JsonKey`.
 `JsonKey<T>` callbacks return `T?` for type safety while raw JSON input stays
 `Object?`. Use `convert` / `each` as `(Map json, Object? value)`, `onNullValue`
 as `(Map json)` when the resolved input is null, and `forceValue` to force a

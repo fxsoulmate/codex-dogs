@@ -118,16 +118,16 @@ DogStructure<AliasValue> aliasStructure() => DogStructure<AliasValue>(
       StructureConformity.basic,
       [
         DogStructureField.int("id", optional: true, annotations: const [
-          JsonKey(aliases: ["legacy_id", "id"])
+          JsonKey(fromJsonKeys: ["legacy_id", "id"])
         ]),
         DogStructureField.string("name", optional: true, annotations: const [
-          JsonKey(aliases: ["legacy_name", "name"])
+          JsonKey(fromJsonKeys: ["legacy_name", "name"])
         ]),
         DogStructureField.string("echo", optional: true, annotations: const [
-          JsonKey(aliases: ["name"])
+          JsonKey(fromJsonKeys: ["name"])
         ]),
         DogStructureField.bool("flag", optional: true, annotations: const [
-          JsonKey(aliases: ["legacy_flag", "flag"])
+          JsonKey(fromJsonKeys: ["legacy_flag", "flag"])
         ]),
         DogStructureField.bool("ignored", annotations: const [JsonKey(forceValue: false)]),
       ],
@@ -151,14 +151,14 @@ DogStructure<TreeValue> treeStructure() => DogStructure<TreeValue>(
       StructureConformity.basic,
       [
         DogStructureField.create<AliasValue>("child", optional: true, annotations: const [
-          JsonKey(aliases: ["payload"])
+          JsonKey(fromJsonKeys: ["payload"])
         ]),
         DogStructureField.create<AliasValue>(
           "children",
           optional: true,
           iterable: IterableKind.list,
           annotations: const [
-            JsonKey(aliases: ["children", "old_children"])
+            JsonKey(fromJsonKeys: ["children", "old_children"])
           ],
         ),
         DogStructureField.create<TreeValue>("nested", optional: true),
@@ -176,7 +176,7 @@ DogStructure<ConvertedValue> convertedStructure() => DogStructure<ConvertedValue
       StructureConformity.basic,
       [
         DogStructureField.string("text", optional: true, annotations: const [
-          JsonKey(aliases: ["legacy_text", "text"], convert: JsonConversions.stringify),
+          JsonKey(fromJsonKeys: ["legacy_text", "text"], convert: JsonConversions.stringify),
         ]),
         DogStructureField.int("flag", annotations: const [JsonKey(convert: JsonConversions.flagInt)]),
         DogStructureField.int("whole", optional: true, annotations: const [
@@ -246,14 +246,14 @@ DogStructure<ParsedHolder> parsedStructure() => DogStructure<ParsedHolder>(
           JsonKey(convert: convertChild),
         ]),
         DogStructureField.create<ParsedChild>("payload", optional: true, annotations: const [
-          JsonKey(aliases: ["legacy_payload", "payload"], convert: convertChild),
+          JsonKey(fromJsonKeys: ["legacy_payload", "payload"], convert: convertChild),
         ]),
         DogStructureField.create<ParsedChild>(
           "children",
           optional: true,
           iterable: IterableKind.list,
           annotations: const [
-            JsonKey(key: "items", each: eachChild),
+            JsonKey(fromJsonKey: "items", each: eachChild),
           ],
         ),
       ],
@@ -600,7 +600,7 @@ void main() {
       expect(codec.engine, same(engine));
     });
 
-    test("JsonKey key overrides aliases for nested convert", () {
+    test("JsonKey.fromJsonKey overrides fromJsonKeys for nested convert", () {
       final (:codec, :engine) = codecFixture();
       registerModel(
           engine,
@@ -609,7 +609,7 @@ void main() {
             StructureConformity.basic,
             [
               DogStructureField.create<ParsedChild>("child", optional: true, annotations: const [
-                JsonKey(aliases: ["legacy_child", "child"], key: "product", convert: convertChild),
+                JsonKey(fromJsonKeys: ["legacy_child", "child"], fromJsonKey: "product", convert: convertChild),
               ]),
               DogStructureField.create<ParsedChild>("payload", optional: true),
               DogStructureField.create<ParsedChild>(
@@ -635,7 +635,7 @@ void main() {
       expect(codec.engine, same(engine));
     });
 
-    test("JsonKey convert falls back through aliases when no key is set", () {
+    test("JsonKey convert falls back through fromJsonKeys when no fromJsonKey is set", () {
       final (:codec, :engine) = codecFixture();
       expect(
           codec.fromJson<ParsedHolder>({

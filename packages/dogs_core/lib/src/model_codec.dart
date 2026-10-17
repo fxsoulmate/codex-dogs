@@ -34,8 +34,8 @@ class JsonModel extends Structure implements SerializationHook {
     final source = Map<String, dynamic>.from(map);
     for (final field in structure.fields) {
       final key = field.firstAnnotationOf<JsonKey>();
-      final aliases = key?.aliases;
-      if (aliases != null) map[field.name] = key!.readAliasValue(source);
+      final fromJsonKeys = key?.fromJsonKeys;
+      if (fromJsonKeys != null) map[field.name] = key!.readFromJsonKeysValue(source);
     }
     if (stringify) map.updateAll((key, value) => value?.toString());
   }
@@ -140,23 +140,20 @@ class EncodeOptions {
 /// Decode order:
 /// 1. explicit [DogModelCodec.fromJson] `values` overrides
 /// 2. [forceValue] when set (including explicit `null`)
-/// 3. resolve [key] / [aliases] / field name
+/// 3. resolve [fromJsonKey] / [fromJsonKeys] / field name
 /// 4. [onNullValue] when the resolved value is `null` (missing or explicit null)
 /// 5. [convert] for the whole field, or [each] for list elements
 ///
 /// Encode notes:
-/// - [aliases] are decode-only and never auto-emitted
-/// - default output key is [key] ?? structure field name
-/// - [encodeAlso] always dual-writes the same value under those keys
+/// - [fromJsonKeys] are decode-only and never auto-emitted
+/// - default output key is [fromJsonKey] ?? structure field name
+/// - dual-write extra keys with [EncodeOptions.also] on [DogModelCodec.toJson]
 class JsonKey<T> extends StructureMetadata with FieldSerializationHook {
   /// Alternative input names; decode-only (do not auto-encode).
-  final List<String>? aliases;
+  final List<String>? fromJsonKeys;
 
-  /// Explicit decode / default encode JSON key; defaults to the structure field name.
-  final String? key;
-
-  /// Extra encode keys that always receive the same value as the primary key.
-  final List<String>? encodeAlso;
+  /// Preferred decode JSON key; also the default encode key when set.
+  final String? fromJsonKey;
 
   /// Converts the whole field using the parent map and raw resolved value.
   final JsonConvert<T>? convert;
@@ -173,11 +170,10 @@ class JsonKey<T> extends StructureMetadata with FieldSerializationHook {
   /// a forced `null`. At runtime the value should be a [T?].
   final Object? forceValue;
 
-  /// Declares field-level JSON rules for aliases, conversion, and fixed values.
+  /// Declares field-level JSON rules for decode keys, conversion, and fixed values.
   const JsonKey({
-    this.aliases,
-    this.key,
-    this.encodeAlso,
+    this.fromJsonKeys,
+    this.fromJsonKey,
     this.convert,
     this.each,
     this.onNullValue,
@@ -187,9 +183,9 @@ class JsonKey<T> extends StructureMetadata with FieldSerializationHook {
   /// Whether [forceValue] was supplied, including an explicit null.
   bool hasFixedValue() => !identical(forceValue, jsonKeyUnset);
 
-  /// Returns the first alias key with a non-null value, or null if none match.
-  String? readAliasKey(JsonMap json) {
-    final keys = aliases;
+  /// Returns the first [fromJsonKeys] entry with a non-null value, or null.
+  String? resolveFromJsonKeys(JsonMap json) {
+    final keys = fromJsonKeys;
     if (keys == null) return null;
     for (final key in keys) {
       if (json[key] != null) return key;
@@ -197,8 +193,8 @@ class JsonKey<T> extends StructureMetadata with FieldSerializationHook {
     return null;
   }
 
-  /// Reads from the original map so aliases never affect each other.
-  Object? readAliasValue(JsonMap json) => json[readAliasKey(json)];
+  /// Reads from the original map so [fromJsonKeys] never affect each other.
+  Object? readFromJsonKeysValue(JsonMap json) => json[resolveFromJsonKeys(json)];
 
   @override
   void beforeFieldDeserialization(NativeStructureContext context,
@@ -320,19 +316,19 @@ class DogModelCodec {
       }
       final Object? raw;
       final String key;
-      if (keyMeta?.key != null) {
-        final named = keyMeta!.key!;
+      if (keyMeta?.fromJsonKey != null) {
+        final named = keyMeta!.fromJsonKey!;
         final namedValue = json[named];
-        if (namedValue != null || keyMeta.aliases == null) {
+        if (namedValue != null || keyMeta.fromJsonKeys == null) {
           key = named;
           raw = namedValue;
         } else {
-          key = keyMeta.readAliasKey(json) ?? named;
-          raw = keyMeta.readAliasValue(json);
+          key = keyMeta.resolveFromJsonKeys(json) ?? named;
+          raw = keyMeta.readFromJsonKeysValue(json);
         }
-      } else if (keyMeta?.aliases != null) {
-        key = keyMeta!.readAliasKey(json) ?? field.name;
-        raw = keyMeta.readAliasValue(json);
+      } else if (keyMeta?.fromJsonKeys != null) {
+        key = keyMeta!.resolveFromJsonKeys(json) ?? field.name;
+        raw = keyMeta.readFromJsonKeysValue(json);
       } else {
         key = field.name;
         raw = json[field.name];
@@ -411,19 +407,18 @@ class DogModelCodec {
       }
 
       final keyMeta = field.firstAnnotationOf<JsonKey>();
-      final defaultKey = keyMeta?.key ?? field.name;
+      final defaultKey = keyMeta?.fromJsonKey ?? field.name;
       final outKey = rename[field.name] ?? defaultKey;
       final encoded = encodeValue(values[index], field, options);
 
       result[outKey] = encoded;
 
-      final alsoKeys = <String>{
-        ...?keyMeta?.encodeAlso,
-        ...?also[field.name],
-      };
-      for (final extraKey in alsoKeys) {
-        if (extraKey == outKey) continue;
-        result[extraKey] = encoded;
+      final alsoKeys = also[field.name];
+      if (alsoKeys != null) {
+        for (final extraKey in alsoKeys) {
+          if (extraKey == outKey) continue;
+          result[extraKey] = encoded;
+        }
       }
     }
 

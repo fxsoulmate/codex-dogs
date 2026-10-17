@@ -97,10 +97,10 @@ DogStructure<Sample> sampleStructure() => DogStructure<Sample>(
       StructureConformity.basic,
       [
         DogStructureField.int('id', optional: true, annotations: const [
-          JsonKey<int>(aliases: ['legacy_id', 'id'], onNullValue: onNullSeven),
+          JsonKey<int>(fromJsonKeys: ['legacy_id', 'id'], onNullValue: onNullSeven),
         ]),
         DogStructureField.string('name', optional: true, annotations: const [
-          JsonKey<String>(aliases: ['legacy_name', 'name'], convert: JsonConversions.stringify),
+          JsonKey<String>(fromJsonKeys: ['legacy_name', 'name'], convert: JsonConversions.stringify),
         ]),
         DogStructureField.int('flag', optional: true, annotations: const [
           JsonKey<int>(convert: JsonConversions.flagInt, onNullValue: JsonConversions.zero),
@@ -113,13 +113,13 @@ DogStructure<Sample> sampleStructure() => DogStructure<Sample>(
             iterable: IterableKind.list,
             annotations: const [JsonKey<int>(each: JsonConversions.integer)]),
         DogStructureField.create<Child>('child', optional: true, annotations: const [
-          JsonKey<Child>(key: 'product', convert: convertChild),
+          JsonKey<Child>(fromJsonKey: 'product', convert: convertChild),
         ]),
         DogStructureField.create<Child>(
           'children',
           optional: true,
           iterable: IterableKind.list,
-          annotations: const [JsonKey<Child>(key: 'items', each: eachChild)],
+          annotations: const [JsonKey<Child>(fromJsonKey: 'items', each: eachChild)],
         ),
         DogStructureField.int('forced', optional: true, annotations: const [
           JsonKey<int>(forceValue: null, onNullValue: onNullSeven),
@@ -302,7 +302,7 @@ void main() {
           included['section_category_id'] == 2 &&
           !included.containsKey('name'));
 
-  check('JsonKey<int> is JsonKey', const JsonKey<int>(aliases: ['a']) is JsonKey);
+  check('JsonKey<int> is JsonKey', const JsonKey<int>(fromJsonKeys: ['a']) is JsonKey);
   check('hasFixedValue null', const JsonKey<int>(forceValue: null).hasFixedValue());
   check('hasFixedValue unset', !const JsonKey<int>().hasFixedValue());
   check('falseValue typed bool', JsonConversions.falseValue(const {}) == false);

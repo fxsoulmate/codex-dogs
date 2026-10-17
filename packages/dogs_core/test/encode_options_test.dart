@@ -101,7 +101,7 @@ DogStructure<Column> columnStructure() => DogStructure<Column>(
         DogStructureField.string("name"),
         DogStructureField.double("width"),
         DogStructureField.bool("is_pinned", annotations: const [
-          JsonKey(aliases: ["isPinned", "isPin", "is_pinned", "is_pin"], key: "isPinned"),
+          JsonKey(fromJsonKeys: ["isPinned", "isPin", "is_pinned", "is_pin"], fromJsonKey: "isPinned"),
         ]),
       ],
       const [JsonModel()],
@@ -132,7 +132,7 @@ DogStructure<Section> sectionStructure() => DogStructure<Section>(
       StructureConformity.basic,
       [
         DogStructureField.int("id", optional: true, annotations: const [
-          JsonKey(aliases: ["id", "section_category_id"], encodeAlso: ["section_category_id"]),
+          JsonKey(fromJsonKeys: ["id", "section_category_id"]),
         ]),
         DogStructureField.create<num>("fee_rate", optional: true),
         DogStructureField.string("name_ku", optional: true),
@@ -165,7 +165,7 @@ DogStructure<Dual> dualStructure() => DogStructure<Dual>(
       StructureConformity.basic,
       [
         DogStructureField.int("id", optional: true, annotations: const [
-          JsonKey(encodeAlso: ["section_category_id", "category_id"]),
+          JsonKey(),
         ]),
       ],
       const [JsonModel()],
@@ -260,36 +260,59 @@ void main() {
     });
   });
 
-  group("encodeAlso annotation", () {
+  group("EncodeOptions.also dual-write", () {
     test("SectionCategoryModel writes id and section_category_id", () {
       final (:codec, engine: _) = fixture();
       expect(
         codec.toJson(
           const Section(id: 3, feeRate: 1.5),
-          options: EncodeOptions(include: [Section$.id, Section$.feeRate]),
+          options: EncodeOptions(
+            include: [Section$.id, Section$.feeRate],
+            also: {
+              Section$.id: ["section_category_id"],
+            },
+          ),
         ),
         {"id": 3, "section_category_id": 3, "fee_rate": 1.5},
       );
     });
 
-    test("multiple encodeAlso keys and skip duplicate of primary", () {
+    test("multiple also keys and skip duplicate of primary", () {
       final (:codec, engine: _) = fixture();
       expect(
-        codec.toJson(const Dual(id: 9)),
+        codec.toJson(
+          const Dual(id: 9),
+          options: EncodeOptions(also: {
+            Dual$.id: ["section_category_id", "category_id"],
+          }),
+        ),
         {"id": 9, "section_category_id": 9, "category_id": 9},
       );
       expect(
-        codec.toJson(const Dual(id: 9), options: EncodeOptions(rename: {Dual$.id: "id"})),
+        codec.toJson(
+          const Dual(id: 9),
+          options: EncodeOptions(
+            rename: {Dual$.id: "id"},
+            also: {
+              Dual$.id: ["section_category_id", "category_id"],
+            },
+          ),
+        ),
         {"id": 9, "section_category_id": 9, "category_id": 9},
       );
     });
 
-    test("rename primary keeps encodeAlso extras", () {
+    test("rename primary keeps EncodeOptions.also extras", () {
       final (:codec, engine: _) = fixture();
       expect(
         codec.toJson(
           const Section(id: 3, feeRate: 2),
-          options: EncodeOptions(include: [Section$.id, Section$.feeRate]),
+          options: EncodeOptions(
+            include: [Section$.id, Section$.feeRate],
+            also: {
+              Section$.id: ["section_category_id"],
+            },
+          ),
           encodeAs: {"id": "category_id"},
         ),
         {"category_id": 3, "section_category_id": 3, "fee_rate": 2},
@@ -305,6 +328,9 @@ void main() {
         options: EncodeOptions(
           include: [Section$.id, Section$.nameKu],
           rename: {Section$.id: "item_id"},
+          also: {
+            Section$.id: ["section_category_id"],
+          },
         ),
       );
       expect(json, {"item_id": 3, "section_category_id": 3, "name_ku": "ku"});
@@ -458,7 +484,7 @@ void main() {
       expect(json["columns"].single, {"name": "c", "isPin": true});
     });
 
-    test("Column default JsonKey.key isPinned; encodeAs can pick is_pinned / isPin / is_pin", () {
+    test("Column default JsonKey.fromJsonKey isPinned; encodeAs can pick is_pinned / isPin / is_pin", () {
       final (:codec, engine: _) = fixture();
       const column = Column(name: "c", width: 1, isPinned: true);
       expect(codec.toJson(column)["isPinned"], isTrue);
@@ -467,7 +493,7 @@ void main() {
       expect(codec.toJson(column, encodeAs: {"is_pinned": "is_pin"})["is_pin"], isTrue);
     });
 
-    test("JsonKey.key decode falls back to aliases when named key is absent", () {
+    test("JsonKey.fromJsonKey decode falls back to fromJsonKeys when named key is absent", () {
       final (:codec, engine: _) = fixture();
       expect(
         codec.fromJson<Column>({"name": "n", "width": 1.0, "is_pin": true}).isPinned,
@@ -526,7 +552,7 @@ void main() {
       );
     });
 
-    test("round-trip fromJson aliases then toJson with encodeAs", () {
+    test("round-trip fromJsonKeys then toJson with also + rename", () {
       final (:codec, engine: _) = fixture();
       final section = codec.fromJson<Section>({
         "section_category_id": 11,
@@ -539,6 +565,9 @@ void main() {
           options: EncodeOptions(
             include: [Section$.id, Section$.feeRate],
             rename: {Section$.id: "item_id"},
+            also: {
+              Section$.id: ["section_category_id"],
+            },
           ),
         ),
         {"item_id": 11, "section_category_id": 11, "fee_rate": 0.2},
